@@ -1,4 +1,3 @@
-from database import initialize_database
 
 import sqlite3
 from pathlib import Path
@@ -49,11 +48,15 @@ def initialize_database():
 
             copies INTEGER DEFAULT 1,
 
-            paper_size TEXT DEFAULT 'A4',
+paper_size TEXT DEFAULT 'A4',
 
-            print_type TEXT DEFAULT 'Black & White',
+orientation TEXT DEFAULT 'Portrait',
 
-            total_pages INTEGER DEFAULT 0,
+print_type TEXT DEFAULT 'bw',
+
+page_range TEXT DEFAULT 'All',
+
+total_pages INTEGER DEFAULT 0,
 
             total_amount REAL DEFAULT 0,
 
@@ -91,40 +94,39 @@ def save_print_job(
     job_id,
     original_name,
     saved_name,
-    file_size
+    file_size,
+    total_pages,
+    queue_number,
+    total_amount
 ):
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     cursor.execute("""
-
         INSERT INTO print_jobs (
-
             job_id,
             original_name,
             saved_name,
-            file_size
-
+            file_size,
+            total_pages,
+            queue_number,
+            total_amount
         )
-
-        VALUES (?, ?, ?, ?)
-
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     """, (
-
         job_id,
         original_name,
         saved_name,
-        file_size
-
+        file_size,
+        total_pages,
+        queue_number,
+        total_amount
     ))
 
     connection.commit()
-
     connection.close()
-
-
+  
 # ==========================
 # Get Print Job
 # ==========================
@@ -243,6 +245,7 @@ def update_printer_status(job_id, status):
     copies,
     print_type,
     paper_size,
+    orientation,
     page_range
 
 ):
@@ -260,6 +263,7 @@ def update_printer_status(job_id, status):
             copies=?,
             print_type=?,
             paper_size=?,
+            orientation=?,
             page_range=?
 
         WHERE job_id=?
@@ -269,6 +273,7 @@ def update_printer_status(job_id, status):
         copies,
         print_type,
         paper_size,
+        orientation,
         page_range,
         job_id
 

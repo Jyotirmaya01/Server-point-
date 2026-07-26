@@ -28,8 +28,8 @@ let order = {};
 let redirected = false;
 
 loadOrder();
+await loadJob();
 fillDetails();
-loadJob();
 
 function loadOrder() {
 
@@ -47,6 +47,11 @@ function fillDetails(){
 
     if(transactionId)
         transactionId.textContent = createTransactionId();
+
+  /* After adding Razorpay
+Replace it with the payment ID returned by your backend, for example:
+transactionId.textContent =
+    order.payment_id || "Pending"; */
 
     if(paymentStatus)
         paymentStatus.textContent = "Successful";
@@ -87,15 +92,18 @@ function fillDetails(){
     order.paperSize ||
     "A4";
 
-    if(printType)
-        const type =
-    order.print_type ||
-    order.printType;
+    if (printType) {
 
-printType.textContent =
-    type === "color"
-        ? "Colour"
-        : "Black & White";
+    const type =
+        order.print_type ||
+        order.printType;
+
+    printType.textContent =
+        type === "color"
+            ? "Colour"
+            : "Black & White";
+
+    }
 
     if(printedPages)
         printedPages.textContent = "0";
@@ -280,16 +288,19 @@ function completeOrder(){
 
 
 // Replace finishPrinting redirect
-const oldFinish = finishPrinting;
+function finishPrinting(){
 
-finishPrinting = function(){
-
-    oldFinish();
+    ...
 
     completeOrder();
 
-};
+    setTimeout(function(){
 
+        window.location.href = "complete.html";
+
+    },4000);
+
+}
 
 // Developer log
 console.log("Success Page Loaded");
@@ -364,23 +375,15 @@ async function loadJob() {
       
     }
       if (
-
-    job.printer_status === "Completed"
-
-    &&
-
+    job.printer_status === "Completed" &&
     !redirected
-
 ) {
 
     redirected = true;
 
     localStorage.setItem(
-
         "serveprint_completed",
-
         JSON.stringify(job)
-
     );
 
     setTimeout(function () {

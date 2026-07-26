@@ -95,14 +95,6 @@ paperSize.addEventListener("change",function(){
 
 });
 
-orientation.addEventListener("change",function(){
-
-});
-
-pageRange.addEventListener("input",function(){
-
-});
-
 printTypes.forEach(function(item){
 
     item.addEventListener("change",function(){
@@ -144,9 +136,11 @@ function detectPages(selectedFile){
 
     }
 
-    else if(ext==="pdf"){
+    else if (ext === "pdf") {
 
-        pages=1;
+    pages = 0;
+
+    pageCount.textContent = "Detecting...";
 
     }
 
@@ -260,15 +254,14 @@ payBtn.addEventListener("click", async function () {
     try {
 
         const result = await uploadDocument();
-      await createPrintJob(
 
-    result.job_id
+if (!result) return;
 
-);
+pages = result.total_pages;
 
-        if (!result) return;
+pageCount.textContent = result.total_pages;
 
-        pageCount.textContent = result.total_pages;
+const printJob = await createPrintJob(result.job_id);
 
         price.textContent = result.total_amount;
 

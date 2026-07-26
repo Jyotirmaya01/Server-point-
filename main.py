@@ -2,7 +2,8 @@
 # ServePrint Backend (Part 1A)
 # Imports
 # ==========================================
-
+import logging
+from pydantic import BaseModel
 from pathlib import Path
 from datetime import datetime
 import shutil
@@ -45,6 +46,13 @@ app = FastAPI(
     description="Backend API for ServePrint",
     version="1.0.0"
 )
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 
 initialize_database()
 
@@ -116,6 +124,7 @@ ALLOWED_MIME_TYPES = {
 # ==========================================
 
 PRICE_PER_PAGE = 2.0
+MAX_FILE_SIZE = 20 * 1024 * 1024
 
 def calculate_price(
     pages: int,
@@ -207,7 +216,46 @@ async def upload_file(
     page_range: str = Form("All")
 
 ):
+  # ------------------------------
+# Validate Copies
+# ------------------------------
 
+if copies < 1:
+    raise HTTPException(
+        status_code=400,
+        detail="Copies must be at least 1."
+    )
+
+if copies > 100:
+    raise HTTPException(
+        status_code=400,
+        detail="Maximum 100 copies allowed."
+    )
+
+  # ------------------------------
+# Validate Page Range
+# ------------------------------
+
+page_range = page_range.strip()
+
+if page_range == "":
+    raise HTTPException(
+        status_code=400,
+        detail="Page range cannot be empty."
+    )
+
+if page_range.lower() != "all":
+
+    import re
+
+    pattern = r"^[0-9,\-\s]+$"
+
+    if not re.match(pattern, page_range):
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid page range."
+        )
     # ------------------------------
     # Validate Extension
     # ------------------------------
@@ -263,13 +311,26 @@ async def upload_file(
 
     file_size = filepath.stat().st_size
 
+  # ------------------------------
+# Validate File Size
+# ------------------------------
+
+if file_size > MAX_FILE_SIZE:
+
+    filepath.unlink()
+
+    raise HTTPException(
+        status_code=400,
+        detail="Maximum file size is 20 MB."
+    )
+
     # ------------------------------
     # Count Pages
     # ------------------------------
 
     total_pages = count_pages(filepath)
 
-    print(f"Detected Pages: {total_pages}")
+    logger.info(f"Detected Pages: {total_pages}")
 
     # ------------------------------
     # Queue
@@ -294,6 +355,13 @@ async def upload_file(
     # ------------------------------
     # Save Database
     # ------------------------------
+
+  # Validate print type
+if print_type not in ["bw", "color"]:
+    raise HTTPException(
+        status_code=400,
+        detail="Invalid print type."
+    )
 
     save_print_job(
 
@@ -377,15 +445,13 @@ async def upload_file(
 # Create Print Job API
 # ==========================================
 
-from pydantic import BaseModel
-
-
 class PrintJobRequest(BaseModel):
 
     job_id: str
     copies: int
     print_type: str
     paper_size: str
+    orientation: str
     page_range: str
 
 
@@ -394,15 +460,17 @@ def create_print_job(request: PrintJobRequest):
 
     update_print_job(
 
-        job_id=request.job_id,
+    job_id=request.job_id,
 
-        copies=request.copies,
+    copies=request.copies,
 
-        print_type=request.print_type,
+    print_type=request.print_type,
 
-        paper_size=request.paper_size,
+    paper_size=request.paper_size,
 
-        page_range=request.page_range
+    orientation=request.orientation,
+
+    page_range=request.page_range
 
     )
 
@@ -615,7 +683,9 @@ async def global_exception_handler(
     exc: Exception
 ):
 
-    print("SERVER ERROR:", exc)
+    logger.error(f"SERVER ERROR: {exc}")
+
+  logger.exception("Unhandled exception")
 
     return JSONResponse(
 
@@ -626,8 +696,6 @@ async def global_exception_handler(
             "success": False,
 
             "message": "Internal Server Error",
-
-            "error": str(exc)
 
         }
 
