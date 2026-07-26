@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - ServePrint</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Logo -->
+    <div class="logo">
+        🖨️
+    </div>
+
+    <!-- Success Header -->
+    <div class="success-card">
+
+        <div class="success-icon">
+            ✅
+        </div>
+
+        <h1>Payment Successful</h1>
+
+        <p class="subtitle">
+            Your payment has been received successfully.
+        </p>
+
+    </div>
+
+    <!-- Transaction Details -->
+    <div class="card">
+
+        <h2>Transaction Details</h2>
+
+        <p>
+            Transaction ID :
+            <span id="transactionId">
+                Loading...
+            </span>
+        </p>
+
+        <p>
+            Amount Paid :
+            ₹<span id="amountPaid">
+                0
+            </span>
+        </p>
+
+        <p>
+            Payment Status :
+            <span id="paymentStatus">
+                Successful
+            </span>
+        </p>
+
+        <p>
+            Payment Time :
+            <span id="paymentTime">
+                --
+            </span>
+        </p>
+
+    </div>
+
+    <!-- Print Job -->
+    <div class="card">
+
+        <h2>Print Job</h2>
+
+        <p>
+            Document :
+            <span id="documentName">
+                Loading...
+            </span>
+        </p>
+
+        <p>
+            Total Pages :
+            <span id="pageCount">
+                0
+            </span>
+        </p>
+
+        <p>
+            Copies :
+            <span id="copies">
+                1
+            </span>
+        </p>
+
+        <p>
+            Print Type :
+            <span id="printType">
+                Black & White
+            </span>
+        </p>
+
+        <p>
+            Paper Size :
+            <span id="paperSize">
+                A4
+            </span>
+        </p>
+
+    </div>
+
+    <!-- Queue -->
+    <div class="card">
+
+        <h2>Queue Status</h2>
+
+        <p>
+            Orders Ahead :
+            <span id="ordersAhead">
+                --
+            </span>
+        </p>
+
+        <p>
+            Estimated Waiting Time :
+            <span id="waitingTime">
+                Calculating...
+            </span>
+        </p>
+
+    </div>
+
+    <!-- Printing -->
+    <div class="card">
+
+        <h2>Printing Progress</h2>
+
+        <p id="printingStatus">
+            Preparing Printer...
+        </p>
+
+        <div class="progress">
+
+            <div id="progressBar">
+
+            </div>
+
+        </div>
+
+        <p>
+
+            Printed Pages :
+
+            <span id="printedPages">
+
+                0
+
+            </span>
+
+            /
+
+            <span id="totalPages">
+
+                0
+
+            </span>
+
+        </p>
+
+    </div>
+
+    <!-- Live Status -->
+    <div class="card">
+
+        <h2>Live Status</h2>
+
+        <ul>
+
+            <li id="step1">
+                ✔ Payment Received
+            </li>
+
+            <li id="step2">
+                ⏳ Preparing Printer
+            </li>
+
+            <li id="step3">
+                ⏳ Sending Document
+            </li>
+
+            <li id="step4">
+                ⏳ Printing
+            </li>
+
+            <li id="step5">
+                ⏳ Ready For Collection
+            </li>
+
+        </ul>
+
+    </div>
+
+    <!-- Information -->
+
+    <div class="card">
+
+        <h2>Information</h2>
+
+        <p>
+
+            Please keep this page open while your document is printing.
+
+        </p>
+
+        <p>
+
+            Once printing is completed, you will automatically be redirected to the confirmation page.
+
+        </p>
+
+    </div>
+
+</div>
+
+<script src="success.js"></script>
+
+</body>
+</html>

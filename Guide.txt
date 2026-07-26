@@ -1,0 +1,59 @@
+Development Roadmap
+
+Phase 1
+HTML home page
+Upload PDF
+Select B&W/Color
+Select copies
+
+Phase 2
+Python upload API
+Save PDF to Supabase Storage
+
+Phase 3
+Count PDF pages
+Calculate price
+
+Phase 4
+Razorpay payment
+
+Phase 5
+Payment webhook
+
+Phase 6
+n8n automation
+
+Phase 7
+PrintNode integration
+
+Phase 8
+Admin dashboard
+
+phase 9
+add data to spreedsheet to track sales
+
+flow work
+Customer
+     │
+     ▼
+Upload PDF
+     │
+     ▼
+Select Print Options
+     │
+     ▼
+Pay via UPI
+     │
+     ▼
+Payment Verified
+     │
+     ▼
+Print Starts
+     │
+     ▼
+Print Completed
+     │
+     ├──────────────► Store Order in Supabase
+     │
+     └──────────────► Add Row to Google Sheets
+     

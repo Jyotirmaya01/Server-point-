@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Completed - ServePrint</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Logo -->
+    <div class="logo">
+        🖨️
+    </div>
+
+    <!-- Success -->
+    <div class="success-card">
+
+        <div class="success-icon">
+            🎉
+        </div>
+
+        <h1>Printing Completed</h1>
+
+        <p class="subtitle">
+            Your documents are ready for collection.
+        </p>
+
+    </div>
+
+    <!-- Collection Message -->
+
+    <div class="card">
+
+        <h2>Collect Your Documents</h2>
+
+        <p>
+
+            Please collect your printed documents from the printer tray.
+
+        </p>
+
+    </div>
+
+    <!-- Print Details -->
+
+    <div class="card">
+
+        <h2>Print Summary</h2>
+
+        <p>
+
+            Document :
+
+            <span id="documentName">
+
+                Loading...
+
+            </span>
+
+        </p>
+
+        <p>
+
+            Total Pages :
+
+            <span id="pageCount">
+
+                0
+
+            </span>
+
+        </p>
+
+        <p>
+
+            Copies :
+
+            <span id="copies">
+
+                1
+
+            </span>
+
+        </p>
+
+        <p>
+
+            Print Type :
+
+            <span id="printType">
+
+                Black & White
+
+            </span>
+
+        </p>
+
+        <p>
+
+            Paper Size :
+
+            <span id="paperSize">
+
+                A4
+
+            </span>
+
+        </p>
+
+    </div>
+
+    <!-- Payment -->
+
+    <div class="card">
+
+        <h2>Payment Details</h2>
+
+        <p>
+
+            Amount Paid :
+
+            ₹<span id="amountPaid">
+
+                0
+
+            </span>
+
+        </p>
+
+        <p>
+
+            Transaction ID :
+
+            <span id="transactionId">
+
+                Loading...
+
+            </span>
+
+        </p>
+
+        <p>
+
+            Payment Status :
+
+            <span id="paymentStatus">
+
+                Successful
+
+            </span>
+
+        </p>
+
+    </div>
+
+    <!-- Job Status -->
+
+    <div class="card">
+
+        <h2>Job Status</h2>
+
+        <ul>
+
+            <li>✅ Payment Received</li>
+
+            <li>✅ Printer Prepared</li>
+
+            <li>✅ Document Sent</li>
+
+            <li>✅ Printing Completed</li>
+
+            <li>✅ Ready for Collection</li>
+
+        </ul>
+
+    </div>
+
+    <!-- Thank You -->
+
+    <div class="card">
+
+        <h2>Thank You!</h2>
+
+        <p>
+
+            Thank you for using ServePrint.
+
+        </p>
+
+        <p>
+
+            We hope to serve you again.
+
+        </p>
+
+    </div>
+
+    <!-- Buttons -->
+
+    <div class="button-group">
+
+        <button
+            id="newPrintBtn"
+            type="button">
+
+            Print Another Document
+
+        </button>
+
+    </div>
+
+</div>
+
+<script src="complete.js"></script>
+
+</body>
+</html>

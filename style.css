@@ -1,0 +1,604 @@
+/* ===========================
+   GOOGLE FONT
+=========================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+
+/* ===========================
+   CSS VARIABLES
+=========================== */
+
+:root{
+
+    --primary:#2563EB;
+    --primary-dark:#1D4ED8;
+
+    --success:#16A34A;
+    --danger:#DC2626;
+    --warning:#F59E0B;
+
+    --background:#F5F7FA;
+
+    --white:#FFFFFF;
+
+    --text:#1F2937;
+    --text-light:#6B7280;
+
+    --border:#E5E7EB;
+
+    --radius:16px;
+
+    --shadow:0 10px 30px rgba(0,0,0,.08);
+
+}
+
+
+/* ===========================
+   RESET
+=========================== */
+
+*{
+
+    margin:0;
+
+    padding:0;
+
+    box-sizing:border-box;
+
+}
+
+
+/* ===========================
+   BODY
+=========================== */
+
+body{
+
+    font-family:'Poppins',sans-serif;
+
+    background:var(--background);
+
+    color:var(--text);
+
+    min-height:100vh;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    padding:30px;
+
+}
+
+
+/* ===========================
+   MAIN CONTAINER
+=========================== */
+
+.container{
+
+    width:100%;
+
+    max-width:700px;
+
+}
+
+
+/* ===========================
+   LOGO
+=========================== */
+
+.logo{
+
+    font-size:70px;
+
+    text-align:center;
+
+    margin-bottom:20px;
+
+}
+
+
+/* ===========================
+   HEADINGS
+=========================== */
+
+h1{
+
+    font-size:32px;
+
+    font-weight:700;
+
+    margin-bottom:10px;
+
+    text-align:center;
+
+}
+
+h2{
+
+    font-size:22px;
+
+    margin-bottom:15px;
+
+}
+
+.subtitle{
+
+    text-align:center;
+
+    color:var(--text-light);
+
+    margin-bottom:10px;
+
+    line-height:1.6;
+
+}
+
+
+/* ===========================
+   PARAGRAPH
+=========================== */
+
+p{
+
+    line-height:1.7;
+
+    margin-bottom:12px;
+
+}
+
+
+/* ===========================
+   LIST
+=========================== */
+
+ul{
+
+    padding-left:20px;
+
+}
+
+li{
+
+    margin-bottom:10px;
+
+}
+
+
+/*cards wection */
+
+/* ===========================
+   COMMON CARD
+=========================== */
+
+.card{
+
+    background:var(--white);
+
+    border-radius:var(--radius);
+
+    box-shadow:var(--shadow);
+
+    padding:25px;
+
+    margin-bottom:25px;
+
+}
+
+
+/* ===========================
+   SUCCESS CARD
+=========================== */
+
+.success-card{
+
+    background:#ECFDF5;
+
+    border-left:6px solid var(--success);
+
+    border-radius:var(--radius);
+
+    padding:30px;
+
+    margin-bottom:25px;
+
+    text-align:center;
+
+}
+
+
+/* ===========================
+   ERROR CARD
+=========================== */
+
+.error-card{
+
+    background:#FEF2F2;
+
+    border-left:6px solid var(--danger);
+
+    border-radius:var(--radius);
+
+    padding:30px;
+
+    margin-bottom:25px;
+
+    text-align:center;
+
+}
+
+
+/* ===========================
+   MAINTENANCE CARD
+=========================== */
+
+.maintenance-card{
+
+    background:#FFF7ED;
+
+    border-left:6px solid var(--warning);
+
+    border-radius:var(--radius);
+
+    padding:30px;
+
+    margin-bottom:25px;
+
+    text-align:center;
+
+}
+
+
+/* ===========================
+   ICONS
+=========================== */
+
+.success-icon,
+.error-icon,
+.maintenance-icon{
+
+    font-size:65px;
+
+    margin-bottom:15px;
+
+}
+
+/* ===========================
+   UPLOAD AREA
+=========================== */
+
+.upload-box{
+
+    border:2px dashed var(--border);
+
+    border-radius:var(--radius);
+
+    background:var(--white);
+
+    padding:40px 20px;
+
+    text-align:center;
+
+    cursor:pointer;
+
+    transition:.3s;
+
+    margin-bottom:25px;
+
+}
+
+.upload-box:hover{
+
+    border-color:var(--primary);
+
+    background:#EFF6FF;
+
+}
+
+.upload-box i{
+
+    font-size:55px;
+
+    color:var(--primary);
+
+    margin-bottom:15px;
+
+}
+
+.upload-box p{
+
+    color:var(--text-light);
+
+}
+
+input[type="file"]{
+
+    display:none;
+
+}
+
+
+/* ===========================
+   FORM ELEMENTS
+=========================== */
+
+label{
+
+    display:block;
+
+    margin-bottom:8px;
+
+    font-weight:600;
+
+}
+
+input,
+select{
+
+    width:100%;
+
+    padding:14px 16px;
+
+    border:1px solid var(--border);
+
+    border-radius:12px;
+
+    font-size:16px;
+
+    outline:none;
+
+    margin-bottom:18px;
+
+    transition:.3s;
+
+}
+
+input[type="radio"]{
+
+    width:auto;
+
+    margin-right:10px;
+
+}
+
+input:focus,
+select:focus{
+
+    border-color:var(--primary);
+
+    box-shadow:0 0 0 3px rgba(37,99,235,.15);
+
+}
+
+
+/* ===========================
+   BUTTONS
+=========================== */
+
+.button-group{
+
+    display:flex;
+
+    gap:15px;
+
+    flex-wrap:wrap;
+
+    margin-top:25px;
+
+}
+
+button{
+
+    flex:1;
+
+    padding:15px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:var(--success);
+
+    color:white;
+
+    font-size:16px;
+
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:.3s;
+
+}
+
+button:hover{
+
+    background:#15803D;
+
+    transform:translateY(-2px);
+
+}
+
+button:active{
+
+    transform:scale(.98);
+
+}
+
+
+/* ===========================
+   PROGRESS BAR
+=========================== */
+
+.progress{
+
+    width:100%;
+
+    height:12px;
+
+    background:#E5E7EB;
+
+    border-radius:20px;
+
+    overflow:hidden;
+
+    margin-top:15px;
+
+}
+
+.progress-bar{
+
+    width:0%;
+
+    height:100%;
+
+    background:var(--primary);
+
+    transition:width .5s ease;
+
+}
+
+
+/* ===========================
+   STATUS BADGES
+=========================== */
+
+.badge{
+
+    display:inline-block;
+
+    padding:6px 14px;
+
+    border-radius:20px;
+
+    font-size:14px;
+
+    font-weight:600;
+
+}
+
+.badge-success{
+
+    background:#DCFCE7;
+
+    color:#166534;
+
+}
+
+.badge-error{
+
+    background:#FEE2E2;
+
+    color:#991B1B;
+
+}
+
+.badge-warning{
+
+    background:#FEF3C7;
+
+    color:#92400E;
+
+}
+
+
+/* ===========================
+   TIMELINE
+=========================== */
+
+.timeline{
+
+    list-style:none;
+
+    padding:0;
+
+}
+
+.timeline li{
+
+    padding:12px 0;
+
+    border-left:3px solid var(--primary);
+
+    padding-left:18px;
+
+    margin-left:10px;
+
+}
+
+
+/* ===========================
+   RESPONSIVE
+=========================== */
+
+@media(max-width:768px){
+
+    body{
+
+        padding:15px;
+
+    }
+
+    h1{
+
+        font-size:26px;
+
+    }
+
+    h2{
+
+        font-size:20px;
+
+    }
+
+    .card,
+    .success-card,
+    .error-card,
+    .maintenance-card{
+
+        padding:20px;
+
+    }
+
+    .button-group{
+
+        flex-direction:column;
+
+    }
+
+}
+
+
+/* ===========================
+   ANIMATIONS
+=========================== */
+
+@keyframes fadeIn{
+
+    from{
+
+        opacity:0;
+
+        transform:translateY(15px);
+
+    }
+
+    to{
+
+        opacity:1;
+
+        transform:translateY(0);
+
+    }
+
+}
+
+.container{
+
+    animation:fadeIn .5s ease;
+
+}

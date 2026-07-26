@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServePrint - Maintenance</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- Logo -->
+
+    <div class="logo">
+
+        🖨️
+
+    </div>
+
+    <!-- Maintenance Card -->
+
+    <div class="maintenance-card">
+
+        <div class="maintenance-icon">
+
+            🛠️
+
+        </div>
+
+        <h1>
+
+            Printer Temporarily Unavailable
+
+        </h1>
+
+        <p class="subtitle">
+
+            We are currently unable to process new print jobs.
+
+        </p>
+
+    </div>
+
+    <!-- Status -->
+
+    <div class="card">
+
+        <h2>
+
+            Current Status
+
+        </h2>
+
+        <p>
+
+            Printer Status :
+
+            <span id="printerStatus">
+
+                Offline
+
+            </span>
+
+        </p>
+
+        <p>
+
+            Reason :
+
+            <span id="maintenanceReason">
+
+                Maintenance in Progress
+
+            </span>
+
+        </p>
+
+        <p>
+
+            Estimated Availability :
+
+            <span id="availableTime">
+
+                Updating...
+
+            </span>
+
+        </p>
+
+    </div>
+
+    <!-- Possible Reasons -->
+
+    <div class="card">
+
+        <h2>
+
+            Possible Reasons
+
+        </h2>
+
+        <ul>
+
+            <li>Printer is turned off.</li>
+
+            <li>Printer is disconnected.</li>
+
+            <li>Printer is out of paper.</li>
+
+            <li>Ink or toner needs replacement.</li>
+
+            <li>Scheduled maintenance.</li>
+
+            <li>Internet connection issue.</li>
+
+        </ul>
+
+    </div>
+
+    <!-- Instructions -->
+
+    <div class="card">
+
+        <h2>
+
+            What Should You Do?
+
+        </h2>
+
+        <p>
+
+            Please wait until the printer becomes available or contact the shop owner for assistance.
+
+        </p>
+
+    </div>
+
+    <!-- Buttons -->
+
+    <div class="button-group">
+
+        <button
+            id="refreshBtn"
+            type="button">
+
+            Check Again
+
+        </button>
+
+        <button
+            id="homeBtn"
+            type="button">
+
+            Return to Home
+
+        </button>
+
+    </div>
+
+</div>
+
+<script src="maintenance.js"></script>
+
+</body>
+</html>
