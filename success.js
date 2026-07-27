@@ -28,8 +28,8 @@ let order = {};
 let redirected = false;
 
 loadOrder();
-await loadJob();
 fillDetails();
+loadJob(); // no top-level "await" - this file loads as a plain script, not a module
 
 function loadOrder() {
 
@@ -181,6 +181,11 @@ function printDocument(){
     },1500);
 
 }
+
+// NOTE: there used to be a second, broken finishPrinting() defined
+// further down (with a literal "..." inside it) that silently
+// overrode this one. It has been removed and merged into this
+// single definition below.
 function finishPrinting(){
 
     if(printingStatus)
@@ -195,6 +200,8 @@ function finishPrinting(){
     if(progressBar)
         progressBar.style.width = "100%";
 
+    completeOrder();
+
     setTimeout(function(){
 
         window.location.href = "complete.html";
@@ -202,6 +209,7 @@ function finishPrinting(){
     },4000);
 
 }
+
 console.log({
     printingStatus,
     progressBar,
@@ -286,22 +294,6 @@ function completeOrder(){
 
 }
 
-
-// Replace finishPrinting redirect
-function finishPrinting(){
-
-    ...
-
-    completeOrder();
-
-    setTimeout(function(){
-
-        window.location.href = "complete.html";
-
-    },4000);
-
-}
-
 // Developer log
 console.log("Success Page Loaded");
 
@@ -309,7 +301,7 @@ console.log("Success Page Loaded");
 // Load Job From Backend
 // ==========================
 
-const API_URL = "http://YOUR_IP_ADDRESS:8000";
+const API_URL = "https://server-point-xiir.onrender.com";
 
 async function loadJob() {
 
@@ -322,9 +314,7 @@ async function loadJob() {
     try {
 
         const response = await fetch(
-
             API_URL + "/jobs/" + order.job_id
-
         );
 
         if (!response.ok) {
@@ -339,71 +329,66 @@ async function loadJob() {
 
         fillDetails();
 
-      if (printingStatus) {
+        if (printingStatus) {
 
-    printingStatus.textContent =
-        job.printer_status || "Preparing Printer";
+            printingStatus.textContent =
+                job.printer_status || "Preparing Printer";
 
-      }
+        }
 
-      if (progressBar) {
+        if (progressBar) {
 
-    switch (job.printer_status) {
+            switch (job.printer_status) {
 
-        case "Preparing":
+                case "Preparing":
 
-            progressBar.style.width = "20%";
-            break;
+                    progressBar.style.width = "20%";
+                    break;
 
-        case "Printing":
+                case "Printing":
 
-            progressBar.style.width = "60%";
-            break;
+                    progressBar.style.width = "60%";
+                    break;
 
-        case "Completed":
+                case "Completed":
 
-            progressBar.style.width = "100%";
-            break;
+                    progressBar.style.width = "100%";
+                    break;
 
-        default:
+                default:
 
-            progressBar.style.width = "10%";
+                    progressBar.style.width = "10%";
 
-    }
+            }
 
-      }
-      
-    }
-      if (
-    job.printer_status === "Completed" &&
-    !redirected
-) {
+        }
 
-    redirected = true;
+        if (
+            job.printer_status === "Completed" &&
+            !redirected
+        ) {
 
-    localStorage.setItem(
-        "serveprint_completed",
-        JSON.stringify(job)
-    );
+            redirected = true;
 
-    setTimeout(function () {
+            localStorage.setItem(
+                "serveprint_completed",
+                JSON.stringify(job)
+            );
 
-        window.location.href = "complete.html";
+            setTimeout(function () {
 
-    }, 1500);
+                window.location.href = "complete.html";
 
-      }
+            }, 1500);
+
+        }
 
         console.log(
+            "Printer Status:",
+            job.printer_status
+        );
 
-    "Printer Status:",
-
-    job.printer_status
-
-);
-      
-
-    catch (error) {
+    } catch (error) {
 
         console.error(error);
 

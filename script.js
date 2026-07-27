@@ -36,7 +36,7 @@ console.log(document.body.innerHTML);
 // Backend API
 // ==========================
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "https://server-point-xiir.onrender.com";
 
 init();
 
