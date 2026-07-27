@@ -1,4 +1,3 @@
-
 import sqlite3
 from pathlib import Path
 
@@ -48,15 +47,15 @@ def initialize_database():
 
             copies INTEGER DEFAULT 1,
 
-paper_size TEXT DEFAULT 'A4',
+            paper_size TEXT DEFAULT 'A4',
 
-orientation TEXT DEFAULT 'Portrait',
+            orientation TEXT DEFAULT 'Portrait',
 
-print_type TEXT DEFAULT 'bw',
+            print_type TEXT DEFAULT 'bw',
 
-page_range TEXT DEFAULT 'All',
+            page_range TEXT DEFAULT 'All',
 
-total_pages INTEGER DEFAULT 0,
+            total_pages INTEGER DEFAULT 0,
 
             total_amount REAL DEFAULT 0,
 
@@ -68,7 +67,7 @@ total_pages INTEGER DEFAULT 0,
 
             payment_id TEXT DEFAULT '',
 
-created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 
         )
 
@@ -126,7 +125,7 @@ def save_print_job(
 
     connection.commit()
     connection.close()
-  
+
 # ==========================
 # Get Print Job
 # ==========================
@@ -151,7 +150,7 @@ def get_print_job(job_id):
 
     return job
 
-  # ==========================
+# ==========================
 # Get All Print Jobs
 # ==========================
 
@@ -239,7 +238,12 @@ def update_printer_status(job_id, status):
 
     connection.close()
 
-  def update_print_job(
+
+# ==========================
+# Update Print Job
+# ==========================
+
+def update_print_job(
 
     job_id,
     copies,
@@ -283,7 +287,8 @@ def update_printer_status(job_id, status):
 
     connection.close()
 
-  # ==========================
+
+# ==========================
 # Start Printing
 # ==========================
 
@@ -312,7 +317,8 @@ def complete_printing(job_id):
 
     )
 
-  # ==========================
+
+# ==========================
 # Queue Number
 # ==========================
 
@@ -404,7 +410,8 @@ def update_job_details(
 
     connection.close()
 
-  # ==========================
+
+# ==========================
 # Update Payment Information
 # ==========================
 
