@@ -133,24 +133,26 @@ function detectPages(selectedFile){
     ){
 
         pages=1;
+        pageCount.textContent=pages;
 
     }
 
     else if (ext === "pdf") {
 
-    pages = 0;
-
-    pageCount.textContent = "Detecting...";
+        // Real page count comes from the backend's count_pages()
+        // after upload (see payBtn click handler below). Just show
+        // a placeholder here instead of overwriting it with 0.
+        pages = 0;
+        pageCount.textContent = "Detecting...";
 
     }
 
     else{
 
         pages=1;
+        pageCount.textContent=pages;
 
     }
-
-    pageCount.textContent=pages;
 
     updatePrice();
 

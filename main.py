@@ -3,6 +3,7 @@
 # Imports
 # ==========================================
 import logging
+import re
 from pydantic import BaseModel
 from pathlib import Path
 from datetime import datetime
@@ -14,9 +15,10 @@ from fastapi import (
     UploadFile,
     File,
     Form,
-    HTTPException
+    HTTPException,
+    Request
 )
-
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pypdf import PdfReader
@@ -116,7 +118,11 @@ ALLOWED_MIME_TYPES = {
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "text/plain"
+    "text/plain",
+    # Mobile browsers / OS file pickers sometimes report PDFs as this
+    # generic type. Extension check below is the real gatekeeper, this
+    # just stops a valid PDF from being rejected on MIME alone.
+    "application/octet-stream"
 }
 
 # ==========================================
@@ -126,20 +132,18 @@ ALLOWED_MIME_TYPES = {
 PRICE_PER_PAGE = 2.0
 MAX_FILE_SIZE = 20 * 1024 * 1024
 
-def calculate_price(
-    pages: int,
-    copies: int = 1
-):
+
+def calculate_price(pages: int, copies: int = 1):
     return pages * copies * PRICE_PER_PAGE
+
 
 # ==========================================
 # Waiting Time
 # ==========================================
 
-def estimate_wait_time(
-    queue_number: int
-):
+def estimate_wait_time(queue_number: int):
     return queue_number * 2
+
 
 # ==========================================
 # PDF Page Counter
@@ -151,20 +155,15 @@ def count_pages(filepath: Path):
         return 1
 
     try:
-
         reader = PdfReader(str(filepath))
-
         pages = len(reader.pages)
-
-        print(f"PDF Pages: {pages}")
-
+        logger.info(f"PDF Pages: {pages}")
         return pages
 
     except Exception as e:
-
-        print("PDF ERROR:", e)
-
+        logger.error(f"PDF ERROR: {e}")
         return 1
+
 
 # ==========================================
 # Basic APIs
@@ -172,7 +171,6 @@ def count_pages(filepath: Path):
 
 @app.get("/")
 def home():
-
     return {
         "project": "ServePrint",
         "status": "Running",
@@ -182,7 +180,6 @@ def home():
 
 @app.get("/health")
 def health():
-
     return {
         "server": "Online",
         "printer": "Waiting",
@@ -192,78 +189,70 @@ def health():
 
 @app.get("/status")
 def status():
-
     return {
         "printer": "Offline",
         "queue": 0,
         "jobs": 0
     }
-  # ==========================================
+
+
+# ==========================================
 # Upload API
 # ==========================================
 
 @app.post("/upload")
 async def upload_file(
-
     file: UploadFile = File(...),
-
     copies: int = Form(1),
-
     print_type: str = Form("bw"),
-
     paper_size: str = Form("A4"),
-
     page_range: str = Form("All")
-
 ):
-  # ------------------------------
-# Validate Copies
-# ------------------------------
+    # ------------------------------
+    # Validate Copies
+    # ------------------------------
 
-if copies < 1:
-    raise HTTPException(
-        status_code=400,
-        detail="Copies must be at least 1."
-    )
-
-if copies > 100:
-    raise HTTPException(
-        status_code=400,
-        detail="Maximum 100 copies allowed."
-    )
-
-  # ------------------------------
-# Validate Page Range
-# ------------------------------
-
-page_range = page_range.strip()
-
-if page_range == "":
-    raise HTTPException(
-        status_code=400,
-        detail="Page range cannot be empty."
-    )
-
-if page_range.lower() != "all":
-
-    import re
-
-    pattern = r"^[0-9,\-\s]+$"
-
-    if not re.match(pattern, page_range):
-
+    if copies < 1:
         raise HTTPException(
             status_code=400,
-            detail="Invalid page range."
+            detail="Copies must be at least 1."
         )
+
+    if copies > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum 100 copies allowed."
+        )
+
+    # ------------------------------
+    # Validate Page Range
+    # ------------------------------
+
+    page_range = page_range.strip()
+
+    if page_range == "":
+        raise HTTPException(
+            status_code=400,
+            detail="Page range cannot be empty."
+        )
+
+    if page_range.lower() != "all":
+        pattern = r"^[0-9,\-\s]+$"
+
+        if not re.match(pattern, page_range):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid page range."
+            )
+
     # ------------------------------
     # Validate Extension
+    # (runs for EVERY upload, not just non-"All" page ranges)
     # ------------------------------
 
     extension = Path(file.filename).suffix.lower()
 
     if extension not in ALLOWED_EXTENSIONS:
-
         raise HTTPException(
             status_code=400,
             detail="Unsupported file type."
@@ -271,10 +260,10 @@ if page_range.lower() != "all":
 
     # ------------------------------
     # Block Videos
+    # (runs for EVERY upload)
     # ------------------------------
 
     if file.content_type and file.content_type.startswith("video/"):
-
         raise HTTPException(
             status_code=400,
             detail="Video files are not allowed."
@@ -282,13 +271,23 @@ if page_range.lower() != "all":
 
     # ------------------------------
     # Validate MIME Type
+    # (runs for EVERY upload)
     # ------------------------------
 
     if file.content_type not in ALLOWED_MIME_TYPES:
-
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported MIME type: {file.content_type}"
+        )
+
+    # ------------------------------
+    # Validate Print Type
+    # ------------------------------
+
+    if print_type not in ["bw", "color"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid print type."
         )
 
     # ------------------------------
@@ -296,9 +295,7 @@ if page_range.lower() != "all":
     # ------------------------------
 
     job_id = str(uuid.uuid4())
-
     filename = f"{job_id}{extension}"
-
     filepath = UPLOAD_FOLDER / filename
 
     # ------------------------------
@@ -306,26 +303,24 @@ if page_range.lower() != "all":
     # ------------------------------
 
     with open(filepath, "wb") as buffer:
-
         shutil.copyfileobj(file.file, buffer)
 
     file_size = filepath.stat().st_size
 
-  # ------------------------------
-# Validate File Size
-# ------------------------------
+    # ------------------------------
+    # Validate File Size
+    # ------------------------------
 
-if file_size > MAX_FILE_SIZE:
-
-    filepath.unlink()
-
-    raise HTTPException(
-        status_code=400,
-        detail="Maximum file size is 20 MB."
-    )
+    if file_size > MAX_FILE_SIZE:
+        filepath.unlink()
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum file size is 20 MB."
+        )
 
     # ------------------------------
     # Count Pages
+    # (this is the line that was never being reached before)
     # ------------------------------
 
     total_pages = count_pages(filepath)
@@ -337,7 +332,6 @@ if file_size > MAX_FILE_SIZE:
     # ------------------------------
 
     queue_number = get_next_queue_number()
-
     waiting_time = estimate_wait_time(queue_number)
 
     # ------------------------------
@@ -345,58 +339,32 @@ if file_size > MAX_FILE_SIZE:
     # ------------------------------
 
     total_amount = calculate_price(
-
         pages=total_pages,
-
         copies=copies
-
     )
 
     # ------------------------------
     # Save Database
     # ------------------------------
 
-  # Validate print type
-if print_type not in ["bw", "color"]:
-    raise HTTPException(
-        status_code=400,
-        detail="Invalid print type."
-    )
-
     save_print_job(
-
         job_id=job_id,
-
         original_name=file.filename,
-
         saved_name=filename,
-
         file_size=file_size,
-
         total_pages=total_pages,
-
         queue_number=queue_number,
-
         total_amount=total_amount
-
     )
 
     update_job_details(
-
         job_id,
-
         total_pages,
-
         total_amount,
-
         queue_number,
-
         copies,
-
         print_type,
-
         paper_size
-
     )
 
     mark_payment_pending(job_id)
@@ -406,47 +374,30 @@ if print_type not in ["bw", "color"]:
     # ------------------------------
 
     return {
-
         "success": True,
-
         "job_id": job_id,
-
         "original_name": file.filename,
-
         "saved_name": filename,
-
         "file_size": file_size,
-
         "uploaded_at": datetime.now().isoformat(),
-
         "queue_number": queue_number,
-
         "total_pages": total_pages,
-
         "total_amount": total_amount,
-
         "estimated_wait_time": waiting_time,
-
         "copies": copies,
-
         "print_type": print_type,
-
         "paper_size": paper_size,
-
         "page_range": page_range,
-
         "payment_status": "Pending",
-
         "printer_status": "Waiting"
-
     }
 
-  # ==========================================
+
+# ==========================================
 # Create Print Job API
 # ==========================================
 
 class PrintJobRequest(BaseModel):
-
     job_id: str
     copies: int
     print_type: str
@@ -457,31 +408,19 @@ class PrintJobRequest(BaseModel):
 
 @app.post("/print")
 def create_print_job(request: PrintJobRequest):
-
     update_print_job(
-
-    job_id=request.job_id,
-
-    copies=request.copies,
-
-    print_type=request.print_type,
-
-    paper_size=request.paper_size,
-
-    orientation=request.orientation,
-
-    page_range=request.page_range
-
+        job_id=request.job_id,
+        copies=request.copies,
+        print_type=request.print_type,
+        paper_size=request.paper_size,
+        orientation=request.orientation,
+        page_range=request.page_range
     )
 
     return {
-
         "success": True,
-
         "message": "Print Job Created",
-
         "job_id": request.job_id
-
     }
 
 
@@ -491,17 +430,12 @@ def create_print_job(request: PrintJobRequest):
 
 @app.get("/jobs/{job_id}")
 def fetch_job(job_id: str):
-
     job = get_print_job(job_id)
 
     if not job:
-
         raise HTTPException(
-
             status_code=404,
-
             detail="Job Not Found"
-
         )
 
     return dict(job)
@@ -513,46 +447,22 @@ def fetch_job(job_id: str):
 
 @app.get("/jobs")
 def fetch_all_jobs():
-
     jobs = get_all_print_jobs()
+    return [dict(job) for job in jobs]
 
-    return [
 
-        dict(job)
-
-        for job in jobs
-
-    ]
-
-  # ==========================================
+# ==========================================
 # Update Payment Status
 # ==========================================
 
 @app.put("/jobs/{job_id}/payment/{status}")
-def payment_status(
-
-    job_id: str,
-
-    status: str
-
-):
-
-    update_payment_status(
-
-        job_id,
-
-        status
-
-    )
+def payment_status(job_id: str, status: str):
+    update_payment_status(job_id, status)
 
     return {
-
         "success": True,
-
         "job_id": job_id,
-
         "payment_status": status
-
     }
 
 
@@ -561,30 +471,13 @@ def payment_status(
 # ==========================================
 
 @app.put("/jobs/{job_id}/printer/{status}")
-def printer_status(
-
-    job_id: str,
-
-    status: str
-
-):
-
-    update_printer_status(
-
-        job_id,
-
-        status
-
-    )
+def printer_status(job_id: str, status: str):
+    update_printer_status(job_id, status)
 
     return {
-
         "success": True,
-
         "job_id": job_id,
-
         "printer_status": status
-
     }
 
 
@@ -593,32 +486,14 @@ def printer_status(
 # ==========================================
 
 @app.post("/payment/{job_id}")
-def verify_payment(
-
-    job_id: str,
-
-    payment_id: str
-
-):
-
-    mark_payment_success(
-
-        job_id,
-
-        payment_id
-
-    )
+def verify_payment(job_id: str, payment_id: str):
+    mark_payment_success(job_id, payment_id)
 
     return {
-
         "success": True,
-
         "job_id": job_id,
-
         "payment_id": payment_id,
-
         "payment_status": "Paid"
-
     }
 
 
@@ -627,22 +502,13 @@ def verify_payment(
 # ==========================================
 
 @app.post("/jobs/{job_id}/start")
-def start_job(
-
-    job_id: str
-
-):
-
+def start_job(job_id: str):
     start_printing(job_id)
 
     return {
-
         "success": True,
-
         "job_id": job_id,
-
         "printer_status": "Printing"
-
     }
 
 
@@ -651,57 +517,35 @@ def start_job(
 # ==========================================
 
 @app.post("/jobs/{job_id}/complete")
-def complete_job(
-
-    job_id: str
-
-):
-
+def complete_job(job_id: str):
     complete_printing(job_id)
 
     return {
-
         "success": True,
-
         "job_id": job_id,
-
         "printer_status": "Completed"
-
     }
 
-  # ==========================================
+
+# ==========================================
 # Global Exception Handler
 # ==========================================
 
-from fastapi.responses import JSONResponse
-from fastapi import Request
-
-
 @app.exception_handler(Exception)
-async def global_exception_handler(
-    request: Request,
-    exc: Exception
-):
-
+async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"SERVER ERROR: {exc}")
-
-  logger.exception("Unhandled exception")
+    logger.exception("Unhandled exception")
 
     return JSONResponse(
-
         status_code=500,
-
         content={
-
             "success": False,
-
             "message": "Internal Server Error",
-
         }
-
     )
 
-  # ==========================================
+
+# ==========================================
 # Startup Message
 # ==========================================
 
