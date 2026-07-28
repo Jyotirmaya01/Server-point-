@@ -29,14 +29,18 @@ const printTypes = document.querySelectorAll(
 let pages = 0;
 let rate = 2;
 let file = null;
-console.log(copies);
-console.log(copies instanceof HTMLInputElement);
-console.log(document.body.innerHTML);
+
 // ==========================
 // Backend API
 // ==========================
 
-const API_URL = "https://server-point-xiir.onrender.com";
+const API_URL = "http://127.0.0.1:8000";
+
+// Must match backend ALLOWED_EXTENSIONS in main.py
+const ALLOWED_EXTENSIONS = [
+    "pdf", "jpg", "jpeg", "png",
+    "docx", "pptx", "xlsx", "txt"
+];
 
 init();
 
@@ -61,7 +65,43 @@ printFile.addEventListener("change", function(){
 
     if(!this.files.length) return;
 
-    file = this.files[0];
+    const selected = this.files[0];
+
+    const ext = selected.name.split(".").pop().toLowerCase();
+
+    // ------------------------------
+    // Reject videos / unsupported types BEFORE showing any
+    // success tick. Backend still re-validates this on upload,
+    // this just stops the frontend from lying to the user.
+    // ------------------------------
+
+    if (
+        (selected.type && selected.type.startsWith("video/")) ||
+        !ALLOWED_EXTENSIONS.includes(ext)
+    ) {
+
+        alert(
+            "Unsupported file type. Allowed: " +
+            ALLOWED_EXTENSIONS.join(", ")
+        );
+
+        this.value = "";
+
+        uploadIcon.textContent = "📂";
+        uploadTitle.textContent = "Click to Upload";
+        uploadText.textContent = "Select your document";
+        fileName.textContent = "No File Selected";
+
+        file = null;
+        pages = 0;
+        pageCount.textContent = "0";
+        updatePrice();
+
+        return;
+
+    }
+
+    file = selected;
 
     uploadIcon.textContent = "✅";
 
@@ -137,11 +177,10 @@ function detectPages(selectedFile){
 
     }
 
-    else if (ext === "pdf") {
+    else if (ext === "pdf" || ext === "pptx" || ext === "ppt") {
 
-        // Real page count comes from the backend's count_pages()
-        // after upload (see payBtn click handler below). Just show
-        // a placeholder here instead of overwriting it with 0.
+        // Real page/slide count comes from the backend after upload
+        // (see payBtn click handler). Just show a placeholder here.
         pages = 0;
         pageCount.textContent = "Detecting...";
 
@@ -257,28 +296,35 @@ payBtn.addEventListener("click", async function () {
 
         const result = await uploadDocument();
 
-if (!result) return;
+        if (!result) return;
 
-pages = result.total_pages;
-
-pageCount.textContent = result.total_pages;
-
-const printJob = await createPrintJob(result.job_id);
-
+        // Set page count AND price immediately from the /upload
+        // response. This no longer waits on createPrintJob() below,
+        // so a failure there can't leave the price stuck at 0.
+        pages = result.total_pages;
+        pageCount.textContent = result.total_pages;
         price.textContent = result.total_amount;
-
         queueCount.textContent = result.queue_number;
-
         waitingTime.textContent =
             result.estimated_wait_time + " min";
 
         localStorage.setItem(
-
             "serveprint_order",
-
             JSON.stringify(result)
-
         );
+
+        // Print job creation (copies/orientation/paper size) is a
+        // secondary step. If it fails, we still keep the user on the
+        // success flow since the upload itself already succeeded.
+        try {
+
+            await createPrintJob(result.job_id);
+
+        } catch (printJobError) {
+
+            console.error("Print job update failed:", printJobError);
+
+        }
 
         window.location.href = "success.html";
 
@@ -388,20 +434,6 @@ async function sendOrderToServer() {
     console.log("Order Ready");
 
     console.log(order);
-
-    /*
-    await fetch("/api/print",{
-
-        method:"POST",
-
-        headers:{
-            "Content-Type":"application/json"
-        },
-
-        body:JSON.stringify(order)
-
-    });
-    */
 
 }
 
@@ -713,6 +745,9 @@ async function createPrintJob(jobId) {
                 ).value,
 
                 paper_size: paperSize.value,
+
+                // was missing before - backend requires this field
+                orientation: orientation ? orientation.value : "Portrait",
 
                 page_range: pageRange.value || "All"
 

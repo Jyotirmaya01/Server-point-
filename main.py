@@ -4,6 +4,7 @@
 # ==========================================
 import logging
 import re
+from typing import Optional
 from pydantic import BaseModel
 from pathlib import Path
 from datetime import datetime
@@ -21,7 +22,9 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.concurrency import run_in_threadpool
 from pypdf import PdfReader
+from pptx import Presentation
 
 from database import (
     initialize_database,
@@ -95,11 +98,8 @@ ALLOWED_EXTENSIONS = {
     ".jpg",
     ".jpeg",
     ".png",
-    ".doc",
     ".docx",
-    ".ppt",
     ".pptx",
-    ".xls",
     ".xlsx",
     ".txt"
 }
@@ -112,16 +112,13 @@ ALLOWED_MIME_TYPES = {
     "application/pdf",
     "image/jpeg",
     "image/png",
-    "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-powerpoint",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "text/plain",
-    # Mobile browsers / OS file pickers sometimes report PDFs as this
-    # generic type. Extension check below is the real gatekeeper, this
-    # just stops a valid PDF from being rejected on MIME alone.
+    # Mobile browsers / OS file pickers sometimes report office files as
+    # this generic type. Extension check above is the real gatekeeper,
+    # this just stops a valid file from being rejected on MIME alone.
     "application/octet-stream"
 }
 
@@ -146,23 +143,45 @@ def estimate_wait_time(queue_number: int):
 
 
 # ==========================================
-# PDF Page Counter
+# Page Counter (PDF + PPTX + fallback)
 # ==========================================
 
 def count_pages(filepath: Path):
+    """
+    Runs inside a threadpool (see /upload) so it never blocks
+    FastAPI's event loop, no matter how large the file is.
+    """
 
-    if filepath.suffix.lower() != ".pdf":
-        return 1
+    ext = filepath.suffix.lower()
 
-    try:
-        reader = PdfReader(str(filepath))
-        pages = len(reader.pages)
-        logger.info(f"PDF Pages: {pages}")
-        return pages
+    if ext == ".pdf":
 
-    except Exception as e:
-        logger.error(f"PDF ERROR: {e}")
-        return 1
+        try:
+            reader = PdfReader(str(filepath))
+            pages = len(reader.pages)
+            logger.info(f"PDF Pages: {pages}")
+            return pages
+
+        except Exception as e:
+            logger.error(f"PDF ERROR: {e}")
+            return 1
+
+    if ext in (".pptx", ".ppt"):
+
+        try:
+            presentation = Presentation(str(filepath))
+            slides = len(presentation.slides)
+            logger.info(f"PPTX Slides: {slides}")
+            return slides
+
+        except Exception as e:
+            # .ppt (old binary format) isn't readable by python-pptx,
+            # only .pptx is. Falls back to 1 rather than crashing.
+            logger.error(f"PPTX ERROR: {e}")
+            return 1
+
+    # Images, .doc, .xls, .txt etc: treated as single page/sheet.
+    return 1
 
 
 # ==========================================
@@ -247,7 +266,6 @@ async def upload_file(
 
     # ------------------------------
     # Validate Extension
-    # (runs for EVERY upload, not just non-"All" page ranges)
     # ------------------------------
 
     extension = Path(file.filename).suffix.lower()
@@ -260,7 +278,6 @@ async def upload_file(
 
     # ------------------------------
     # Block Videos
-    # (runs for EVERY upload)
     # ------------------------------
 
     if file.content_type and file.content_type.startswith("video/"):
@@ -271,7 +288,6 @@ async def upload_file(
 
     # ------------------------------
     # Validate MIME Type
-    # (runs for EVERY upload)
     # ------------------------------
 
     if file.content_type not in ALLOWED_MIME_TYPES:
@@ -320,10 +336,11 @@ async def upload_file(
 
     # ------------------------------
     # Count Pages
-    # (this is the line that was never being reached before)
+    # Runs in a threadpool so it never blocks other requests
+    # while parsing a large PDF/PPTX.
     # ------------------------------
 
-    total_pages = count_pages(filepath)
+    total_pages = await run_in_threadpool(count_pages, filepath)
 
     logger.info(f"Detected Pages: {total_pages}")
 
@@ -402,7 +419,7 @@ class PrintJobRequest(BaseModel):
     copies: int
     print_type: str
     paper_size: str
-    orientation: str
+    orientation: Optional[str] = "Portrait"
     page_range: str
 
 
