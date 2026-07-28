@@ -1,4 +1,4 @@
-
+python-pptx
 fastapi
 uvicorn
 python-multipart
