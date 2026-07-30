@@ -42,6 +42,47 @@ const ALLOWED_EXTENSIONS = [
     "docx", "pptx", "xlsx", "txt"
 ];
 
+// ==========================
+// TEMPORARY Mock Payment Gateway
+// Replace this whole block once Razorpay (Phase 4, see Guide.txt)
+// is integrated. Its only job right now is to actually simulate a
+// payment step that can fail, so the error flow can be tested.
+// ==========================
+
+const MOCK_PAYMENT_FAIL_RATE = 0.2; // 20% of attempts simulate a decline
+
+function simulatePayment() {
+
+    return new Promise(function (resolve, reject) {
+
+        setTimeout(function () {
+
+            const approved = Math.random() > MOCK_PAYMENT_FAIL_RATE;
+
+            if (approved) {
+
+                resolve({
+                    payment_id:
+                        "MOCK_" + Date.now() +
+                        "_" + Math.floor(Math.random() * 10000)
+                });
+
+            } else {
+
+                const err = new Error(
+                    "Payment was declined by the bank. Please try again."
+                );
+                err.isPaymentError = true;
+                reject(err);
+
+            }
+
+        }, 1500); // simulated gateway delay
+
+    });
+
+}
+
 init();
 
 function init() {
@@ -298,11 +339,66 @@ pageRange.addEventListener("input", saveOrder);
 
 payBtn.addEventListener("click", async function () {
 
+    payBtn.disabled = true;
+    const originalLabel = payBtn.textContent;
+
     try {
 
         const result = await uploadDocument();
 
-        if (!result) return;
+        if (!result) {
+            payBtn.disabled = false;
+            return;
+        }
+
+        // ------------------------------
+        // Mock Payment Step
+        // File is uploaded, but nothing is "successful" yet until
+        // payment clears. This can fail (see MOCK_PAYMENT_FAIL_RATE),
+        // and a failure here must go to error.html, not success.html.
+        // ------------------------------
+
+        payBtn.textContent = "Processing Payment...";
+
+        let payment;
+
+        try {
+
+            payment = await simulatePayment();
+
+        } catch (paymentError) {
+
+            // Reflect the decline on the backend so the job record
+            // isn't left saying "Pending" forever.
+            try {
+
+                await fetch(
+                    API_URL + "/jobs/" + result.job_id + "/payment/Failed",
+                    { method: "PUT" }
+                );
+
+            } catch (markError) {
+
+                console.error(
+                    "Could not mark payment as failed on backend:",
+                    markError
+                );
+
+            }
+
+            throw paymentError;
+
+        }
+
+        // Payment approved - verify it on the backend.
+        await fetch(
+            API_URL + "/payment/" + result.job_id +
+            "?payment_id=" + encodeURIComponent(payment.payment_id),
+            { method: "POST" }
+        );
+
+        result.payment_id = payment.payment_id;
+        result.payment_status = "Paid";
 
         // Set page count AND price immediately from the /upload
         // response. This no longer waits on createPrintJob() below,
@@ -321,7 +417,7 @@ payBtn.addEventListener("click", async function () {
 
         // Print job creation (copies/orientation/paper size) is a
         // secondary step. If it fails, we still keep the user on the
-        // success flow since the upload itself already succeeded.
+        // success flow since upload + payment already succeeded.
         try {
 
             await createPrintJob(result.job_id);
@@ -345,13 +441,24 @@ payBtn.addEventListener("click", async function () {
         localStorage.setItem(
             "serveprint_error",
             JSON.stringify({
-                title: "Upload Failed",
+                title: error.isPaymentError
+                    ? "Payment Failed"
+                    : "Upload Failed",
                 message: error.message || "Network or server error.",
-                code: navigator.onLine ? "ERR_REQUEST" : "ERR_OFFLINE"
+                code: error.isPaymentError
+                    ? "ERR_PAYMENT_DECLINED"
+                    : (navigator.onLine ? "ERR_REQUEST" : "ERR_OFFLINE")
             })
         );
 
         window.location.href = "error.html";
+
+    }
+
+    finally {
+
+        payBtn.disabled = false;
+        payBtn.textContent = originalLabel;
 
     }
 
