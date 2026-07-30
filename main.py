@@ -13,7 +13,6 @@ from pathlib import Path
 from datetime import datetime
 import shutil
 import uuid
-import razorpay
 
 from fastapi import (
     FastAPI,
