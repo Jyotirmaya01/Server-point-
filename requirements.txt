@@ -6,6 +6,3 @@ uvicorn
 python-multipart
 pypdf
 pydantic
-razorpay==1.4.2
-setuptools
-
