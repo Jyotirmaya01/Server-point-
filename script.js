@@ -340,6 +340,17 @@ payBtn.addEventListener("click", async function () {
 
         console.error(error);
 
+        // Save the real failure reason so error.html can show it
+        // instead of a generic "Unknown Error".
+        localStorage.setItem(
+            "serveprint_error",
+            JSON.stringify({
+                title: "Upload Failed",
+                message: error.message || "Network or server error.",
+                code: navigator.onLine ? "ERR_REQUEST" : "ERR_OFFLINE"
+            })
+        );
+
         window.location.href = "error.html";
 
     }
@@ -714,7 +725,19 @@ async function uploadDocument() {
 
     if (!response.ok) {
 
-        throw new Error("Upload Failed");
+        let detail = "";
+
+        try {
+            const errBody = await response.json();
+            detail = errBody.detail || JSON.stringify(errBody);
+        } catch (e) {
+            detail = await response.text().catch(() => "");
+        }
+
+        throw new Error(
+            "Upload Failed (" + response.status + "): " +
+            (detail || "No details returned")
+        );
 
     }
 
@@ -765,7 +788,19 @@ async function createPrintJob(jobId) {
 
     if (!response.ok) {
 
-        throw new Error("Unable to create print job");
+        let detail = "";
+
+        try {
+            const errBody = await response.json();
+            detail = errBody.detail || JSON.stringify(errBody);
+        } catch (e) {
+            detail = await response.text().catch(() => "");
+        }
+
+        throw new Error(
+            "Print Job Failed (" + response.status + "): " +
+            (detail || "No details returned")
+        );
 
     }
 
