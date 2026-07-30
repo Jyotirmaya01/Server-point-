@@ -129,6 +129,12 @@ copies.addEventListener("input",function(){
 
 });
 
+copies.addEventListener("focus", function () {
+
+    this.select();
+
+});
+
 paperSize.addEventListener("change",function(){
 
     paperSummary.textContent = this.value;
