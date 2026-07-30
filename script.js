@@ -29,6 +29,7 @@ const printTypes = document.querySelectorAll(
 let pages = 0;
 let rate = 2;
 let file = null;
+let currentJob = null; // holds the /upload response once a file is uploaded
 
 // ==========================
 // Backend API
@@ -100,6 +101,9 @@ function init() {
 
     updatePrice();
 
+    // No file uploaded yet - nothing to pay for.
+    payBtn.disabled = true;
+
 }
 
 printFile.addEventListener("change", function(){
@@ -152,7 +156,9 @@ printFile.addEventListener("change", function(){
 
     fileName.textContent = file.name;
 
-    detectPages(file);
+    detectPages(file); // instant rough guess, replaced below by real data
+
+    refreshOrder(); // uploads now and fills in real page count + price
 
 });
 
@@ -201,6 +207,8 @@ printTypes.forEach(function(item){
         }
 
         updatePrice();
+
+        if (file) refreshOrder();
 
     });
 
@@ -252,6 +260,58 @@ function updatePrice(){
     rate;
 
     price.textContent=total;
+
+}
+
+// ==========================
+// Upload immediately + show real order details
+// (page count, price, queue, wait time) BEFORE the user
+// clicks "Proceed to Payment". payBtn stays disabled until
+// this succeeds, so payment can only start on a real job.
+// ==========================
+
+async function refreshOrder() {
+
+    if (!file) return;
+
+    payBtn.disabled = true;
+
+    pageCount.textContent = "Calculating...";
+    price.textContent = "...";
+
+    try {
+
+        const result = await uploadDocument();
+
+        if (!result) return;
+
+        currentJob = result;
+
+        pages = result.total_pages;
+        pageCount.textContent = result.total_pages;
+        price.textContent = result.total_amount;
+        queueCount.textContent = result.queue_number;
+        waitingTime.textContent =
+            result.estimated_wait_time + " min";
+
+        payBtn.disabled = false;
+
+    } catch (error) {
+
+        console.error("Could not calculate order:", error);
+
+        currentJob = null;
+        pageCount.textContent = "0";
+        price.textContent = "0";
+        payBtn.disabled = true;
+
+        alert(
+            "Could not read your file: " +
+            (error.message || "Unknown error") +
+            "\nPlease try selecting the file again."
+        );
+
+    }
 
 }
 
@@ -333,29 +393,33 @@ function saveOrder() {
 }
 
 copies.addEventListener("change", saveOrder);
+copies.addEventListener("change", function () { if (file) refreshOrder(); });
 paperSize.addEventListener("change", saveOrder);
+paperSize.addEventListener("change", function () { if (file) refreshOrder(); });
 orientation.addEventListener("change", saveOrder);
 pageRange.addEventListener("input", saveOrder);
 
 payBtn.addEventListener("click", async function () {
+
+    if (!currentJob) {
+
+        alert("Please upload a document and wait for the price to load first.");
+
+        return;
+
+    }
 
     payBtn.disabled = true;
     const originalLabel = payBtn.textContent;
 
     try {
 
-        const result = await uploadDocument();
-
-        if (!result) {
-            payBtn.disabled = false;
-            return;
-        }
-
         // ------------------------------
         // Mock Payment Step
-        // File is uploaded, but nothing is "successful" yet until
-        // payment clears. This can fail (see MOCK_PAYMENT_FAIL_RATE),
-        // and a failure here must go to error.html, not success.html.
+        // File is already uploaded and priced (see refreshOrder).
+        // Nothing is "successful" until payment clears. This can
+        // fail (see MOCK_PAYMENT_FAIL_RATE), and a failure here
+        // must go to error.html, not success.html.
         // ------------------------------
 
         payBtn.textContent = "Processing Payment...";
@@ -373,7 +437,7 @@ payBtn.addEventListener("click", async function () {
             try {
 
                 await fetch(
-                    API_URL + "/jobs/" + result.job_id + "/payment/Failed",
+                    API_URL + "/jobs/" + currentJob.job_id + "/payment/Failed",
                     { method: "PUT" }
                 );
 
@@ -392,27 +456,17 @@ payBtn.addEventListener("click", async function () {
 
         // Payment approved - verify it on the backend.
         await fetch(
-            API_URL + "/payment/" + result.job_id +
+            API_URL + "/payment/" + currentJob.job_id +
             "?payment_id=" + encodeURIComponent(payment.payment_id),
             { method: "POST" }
         );
 
-        result.payment_id = payment.payment_id;
-        result.payment_status = "Paid";
-
-        // Set page count AND price immediately from the /upload
-        // response. This no longer waits on createPrintJob() below,
-        // so a failure there can't leave the price stuck at 0.
-        pages = result.total_pages;
-        pageCount.textContent = result.total_pages;
-        price.textContent = result.total_amount;
-        queueCount.textContent = result.queue_number;
-        waitingTime.textContent =
-            result.estimated_wait_time + " min";
+        currentJob.payment_id = payment.payment_id;
+        currentJob.payment_status = "Paid";
 
         localStorage.setItem(
             "serveprint_order",
-            JSON.stringify(result)
+            JSON.stringify(currentJob)
         );
 
         // Print job creation (copies/orientation/paper size) is a
@@ -420,7 +474,7 @@ payBtn.addEventListener("click", async function () {
         // success flow since upload + payment already succeeded.
         try {
 
-            await createPrintJob(result.job_id);
+            await createPrintJob(currentJob.job_id);
 
         } catch (printJobError) {
 
@@ -443,7 +497,7 @@ payBtn.addEventListener("click", async function () {
             JSON.stringify({
                 title: error.isPaymentError
                     ? "Payment Failed"
-                    : "Upload Failed",
+                    : "Error",
                 message: error.message || "Network or server error.",
                 code: error.isPaymentError
                     ? "ERR_PAYMENT_DECLINED"
@@ -589,6 +643,8 @@ function resetOrder(){
 
     file=null;
 
+    currentJob=null;
+
     fileName.textContent="No File Selected";
 
     pageCount.textContent="0";
@@ -606,6 +662,8 @@ function resetOrder(){
     progressBar.style.width="0%";
 
     status.textContent="Waiting for Payment";
+
+    payBtn.disabled=true;
 
 }
 
