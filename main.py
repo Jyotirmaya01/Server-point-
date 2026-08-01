@@ -692,29 +692,29 @@ def update_existing_job(
     )
 
     job = get_print_job(job_id)
+  
+  if not job:
+      raise HTTPException(
+          status_code=404,
+          detail="Job not found"
+      )
+  
+  if job["payment_status"] == "Paid":
+      raise HTTPException(
+          status_code=400,
+          detail="Paid jobs cannot be modified."
+  )
 
-if not job:
-    raise HTTPException(
-        status_code=404,
-        detail="Job not found"
-    )
 
-if job["payment_status"] == "Paid":
-    raise HTTPException(
-        status_code=400,
-        detail="Paid jobs cannot be modified."
-)
-
-
-return {
-    "success": True,
-    "job_id": job_id,
-    "total_pages": total_pages,
-    "total_amount": total_amount,
-    "queue_number": job["queue_number"],
-    "estimated_wait_time": (job["queue_number"] - 1) * 2,
-    "printer_status": job["printer_status"]
-}
+  return {
+      "success": True,
+      "job_id": job_id,
+      "total_pages": total_pages,
+      "total_amount": total_amount,
+      "queue_number": job["queue_number"],
+      "estimated_wait_time": (job["queue_number"] - 1) * 2,
+      "printer_status": job["printer_status"]
+  }
 
 
 # ==========================================
@@ -733,12 +733,12 @@ def fetch_job(job_id: str):
 
     job = dict(job)
 
-job["orders_ahead"] = max(0, job["queue_number"] - 1)
-
-job["estimated_wait_time"] = job["orders_ahead"] * 2
-
-return job
+  job["orders_ahead"] = max(0, job["queue_number"] - 1)
   
+  job["estimated_wait_time"] = job["orders_ahead"] * 2
+  
+  return job
+    
 
 
 # ==========================================
