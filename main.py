@@ -23,7 +23,6 @@ from fastapi import (
     Request
 )
 from vendor_routes import router as vendor_router
-app.include_router(vendor_router)
 
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
