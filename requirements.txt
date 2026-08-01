@@ -6,3 +6,5 @@ uvicorn
 python-multipart
 pypdf
 pydantic
+passlib[bcrypt]
+bcrypt
