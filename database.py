@@ -504,7 +504,8 @@ def refresh_queue():
     cursor.execute("""
         SELECT job_id
         FROM print_jobs
-        WHERE printer_status != 'Completed'
+        WHERE payment_status='Paid'
+AND printer_status!='Completed'
         ORDER BY created_at ASC
     """)
 
