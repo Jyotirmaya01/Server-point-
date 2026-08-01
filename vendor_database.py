@@ -212,6 +212,6 @@ def generate_vendor_id():
     return "SP-" + uuid.uuid4().hex[:10].upper()
 
 
-  initialize_vendor_database()
+initialize_vendor_database()
 
 print("Vendor Database Ready")
