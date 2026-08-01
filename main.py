@@ -22,6 +22,8 @@ from fastapi import (
     HTTPException,
     Request
 )
+from vendor_routes import router as vendor_router
+
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -45,7 +47,9 @@ from database import (
     mark_payment_success,
     start_printing,
     complete_printing,
-    update_print_job
+cleanup_expired_jobs,
+    update_print_job,
+
 )
 
 # ==========================================
@@ -57,6 +61,8 @@ app = FastAPI(
     description="Backend API for ServePrint",
     version="1.0.0"
 )
+
+app.include_router(vendor_router)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -85,6 +91,17 @@ app.add_middleware(
 
 UPLOAD_FOLDER = Path("uploads")
 UPLOAD_FOLDER.mkdir(exist_ok=True)
+
+def cleanup_expired_uploads():
+
+    expired_files = cleanup_expired_jobs()
+
+    for filename in expired_files:
+
+        file_path = UPLOAD_FOLDER / filename
+
+        if file_path.exists():
+            file_path.unlink()
 
 LOG_FOLDER = Path("logs")
 LOG_FOLDER.mkdir(exist_ok=True)
@@ -132,13 +149,24 @@ ALLOWED_MIME_TYPES = {
 # Pricing
 # ==========================================
 
-PRICE_PER_PAGE = 2.0
+BW_PRICE_PER_PAGE = 2.0
+COLOR_PRICE_PER_PAGE = 10.0
+
 MAX_FILE_SIZE = 20 * 1024 * 1024
 
 
-def calculate_price(pages: int, copies: int = 1):
-    return pages * copies * PRICE_PER_PAGE
+def calculate_price(
+    pages: int,
+    copies: int = 1,
+    print_type: str = "bw"
+):
+    rate = (
+        COLOR_PRICE_PER_PAGE
+        if print_type == "color"
+        else BW_PRICE_PER_PAGE
+    )
 
+    return pages * copies * rate
 
 # ==========================================
 # Waiting Time
@@ -545,7 +573,8 @@ async def upload_file(
 
     total_amount = calculate_price(
         pages=total_pages,
-        copies=copies
+        copies=copies,
+      print_type=print_type
     )
 
     # ------------------------------
@@ -629,6 +658,65 @@ def create_print_job(request: PrintJobRequest):
     }
 
 
+@app.put("/jobs/{job_id}")
+
+def update_existing_job(
+    job_id: str,
+    request: PrintJobRequest
+):
+    total_pages = get_print_job(job_id)["total_pages"]
+
+    total_amount = calculate_price(
+        pages=total_pages,
+        copies=request.copies,
+        print_type=request.print_type
+    )
+
+    update_print_job(
+        job_id=job_id,
+        copies=request.copies,
+        print_type=request.print_type,
+        paper_size=request.paper_size,
+        orientation=request.orientation,
+        page_range=request.page_range
+    )
+
+    update_job_details(
+        job_id=job_id,
+        total_pages=total_pages,
+        total_amount=total_amount,
+        queue_number=get_print_job(job_id)["queue_number"],
+        copies=request.copies,
+        print_type=request.print_type,
+        paper_size=request.paper_size
+    )
+
+    job = get_print_job(job_id)
+
+if not job:
+    raise HTTPException(
+        status_code=404,
+        detail="Job not found"
+    )
+
+if job["payment_status"] == "Paid":
+    raise HTTPException(
+        status_code=400,
+        detail="Paid jobs cannot be modified."
+)
+
+
+return {
+    "success": True,
+    "job_id": job_id,
+    "total_pages": total_pages,
+    "total_amount": total_amount,
+    "queue_number": job["queue_number"],
+    "estimated_wait_time": (job["queue_number"] - 1) * 2,
+    "printer_status": job["printer_status"]
+}
+
+
 # ==========================================
 # Get Single Job
 # ==========================================
@@ -643,7 +731,14 @@ def fetch_job(job_id: str):
             detail="Job Not Found"
         )
 
-    return dict(job)
+    job = dict(job)
+
+job["orders_ahead"] = max(0, job["queue_number"] - 1)
+
+job["estimated_wait_time"] = job["orders_ahead"] * 2
+
+return job
+  
 
 
 # ==========================================
