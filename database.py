@@ -310,12 +310,11 @@ def start_printing(job_id):
 def complete_printing(job_id):
 
     update_printer_status(
-
         job_id,
-
         "Completed"
-
     )
+
+    refresh_queue()
 
 
 # ==========================
@@ -494,3 +493,73 @@ def mark_payment_success(
         "Paid"
 
     )
+
+# refresh queue 
+
+def refresh_queue():
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT job_id
+        FROM print_jobs
+        WHERE printer_status != 'Completed'
+        ORDER BY created_at ASC
+    """)
+
+    jobs = cursor.fetchall()
+
+    queue = 1
+
+    for job in jobs:
+
+        cursor.execute("""
+            UPDATE print_jobs
+            SET queue_number=?
+            WHERE job_id=?
+        """, (
+            queue,
+            job["job_id"]
+        ))
+
+        queue += 1
+
+    connection.commit()
+    connection.close()
+
+
+from datetime import datetime, timedelta
+
+def cleanup_expired_jobs():
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    expiry_time = (
+        datetime.now() - timedelta(minutes=2)
+    ).strftime("%Y-%m-%d %H:%M:%S")
+
+    cursor.execute("""
+        SELECT saved_name
+        FROM print_jobs
+        WHERE payment_status='Pending'
+        AND created_at <= ?
+    """, (expiry_time,))
+
+    expired_files = [row["saved_name"] for row in cursor.fetchall()]
+
+    cursor.execute("""
+        DELETE FROM print_jobs
+        WHERE payment_status='Pending'
+        AND created_at <= ?
+    """, (expiry_time,))
+
+    connection.commit()
+    connection.close()
+
+    refresh_queue()
+
+    return expired_files
+
+  
