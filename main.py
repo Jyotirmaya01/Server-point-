@@ -659,12 +659,25 @@ def create_print_job(request: PrintJobRequest):
 
 
 @app.put("/jobs/{job_id}")
-
 def update_existing_job(
     job_id: str,
     request: PrintJobRequest
 ):
-    total_pages = get_print_job(job_id)["total_pages"]
+    job = get_print_job(job_id)
+
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found"
+        )
+
+    if job["payment_status"] == "Paid":
+        raise HTTPException(
+            status_code=400,
+            detail="Paid jobs cannot be modified."
+        )
+
+    total_pages = job["total_pages"]
 
     total_amount = calculate_price(
         pages=total_pages,
@@ -685,24 +698,11 @@ def update_existing_job(
         job_id=job_id,
         total_pages=total_pages,
         total_amount=total_amount,
-        queue_number=get_print_job(job_id)["queue_number"],
+        queue_number=job["queue_number"],
         copies=request.copies,
         print_type=request.print_type,
         paper_size=request.paper_size
     )
-      job = get_print_job(job_id)
-
-    if not job:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found"
-        )
-
-    if job["payment_status"] == "Paid":
-        raise HTTPException(
-            status_code=400,
-            detail="Paid jobs cannot be modified."
-        )
 
     return {
         "success": True,
@@ -847,13 +847,3 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-
-# ==========================================
-# Startup Message
-# ==========================================
-
-print("=" * 50)
-print("ServePrint Backend Loaded Successfully")
-print("Version : 1.0.0")
-print("FastAPI Ready")
-print("=" * 50)
