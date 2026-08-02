@@ -53,7 +53,6 @@ from database import (
     update_print_job,
     get_vendor_dashboard,
     get_vendor_orders,
-    get_vendor_by_id,
 
 )
 
