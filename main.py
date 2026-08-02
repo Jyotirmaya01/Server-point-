@@ -53,6 +53,7 @@ from database import (
     update_print_job,
     get_vendor_dashboard,
     get_vendor_orders,
+    get_vendor_by_id,
 
 )
 
@@ -899,6 +900,36 @@ def vendor_orders(vendor_id: str):
 
     return get_vendor_orders(vendor_id)
 
+
+# ==========================================
+# Vendor QR API
+# ==========================================
+
+@app.get("/vendor/{vendor_id}/qr")
+def vendor_qr(vendor_id: str):
+
+    vendor = get_vendor_by_id(vendor_id)
+
+    if vendor is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found"
+        )
+
+    frontend_url = (
+        "https://server-point-1vrst74ki-jyotirmaya01s-projects.vercel.app"
+    )
+
+    return {
+
+        "vendor_id": vendor["vendor_id"],
+
+        "shop_name": vendor["shop_name"],
+
+        "url": f"{frontend_url}/?vendor_id={vendor['vendor_id']}"
+
+    }
 # ==========================================
 # Global Exception Handler
 # ==========================================
