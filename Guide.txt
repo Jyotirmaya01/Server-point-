@@ -56,4 +56,23 @@ Print Completed
      ├──────────────► Store Order in Supabase
      │
      └──────────────► Add Row to Google Sheets
-     
+
+
+
+
+                         Super Admin (You)
+                           │
+        ┌──────────────────┴──────────────────┐
+        │                                     │
+   Vendor 1                             Vendor 2
+   ABC Prints                           XYZ Prints
+        │                                     │
+   Dashboard                          Dashboard
+        │                                     │
+   QR Code                             QR Code
+        │                                     │
+ Customer scans                    Customer scans
+        │                                     │
+      index.html (same page for everyone)
+        │
+ Upload → Payment → Queue → Success → Complete

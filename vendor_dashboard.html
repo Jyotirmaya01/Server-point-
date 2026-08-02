@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>ServePrint Vendor Dashboard</title>
+
+    <link rel="stylesheet"
+          href="dashboard.css">
+
+    <link rel="preconnect"
+          href="https://fonts.googleapis.com">
+
+    <link rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+</head>
+
+<body>
+
+<div class="dashboard">
+
+    <!-- Sidebar -->
+
+    <aside class="sidebar">
+
+        <div class="logo">
+
+            <i class="fa-solid fa-print"></i>
+
+            <span>ServePrint</span>
+
+        </div>
+
+        <div class="vendor-profile">
+
+            <div class="avatar">
+
+                <i class="fa-solid fa-user"></i>
+
+            </div>
+
+            <h3 id="vendorShopName">
+
+                Loading...
+
+            </h3>
+
+            <p id="vendorOwnerName">
+
+                Vendor
+
+            </p>
+
+        </div>
+
+        <nav>
+
+            <ul>
+
+                <li class="active">
+
+                    <i class="fa-solid fa-house"></i>
+
+                    Dashboard
+
+                </li>
+
+                <li>
+
+                    <i class="fa-solid fa-print"></i>
+
+                    Orders
+
+                </li>
+
+                <li>
+
+                    <i class="fa-solid fa-list-ol"></i>
+
+                    Queue
+
+                </li>
+
+                <li>
+
+                    <i class="fa-solid fa-users"></i>
+
+                    Customers
+
+                </li>
+
+                <li>
+
+                    <i class="fa-solid fa-qrcode"></i>
+
+                    QR Code
+
+                </li>
+
+                <li>
+
+                    <i class="fa-solid fa-chart-line"></i>
+
+                    Analytics
+
+                </li>
+
+                <li>
+
+                    <i class="fa-solid fa-wallet"></i>
+
+                    Payments
+
+                </li>
+
+                <li>
+
+                    <i class="fa-solid fa-gear"></i>
+
+                    Settings
+
+                </li>
+
+                <li>
+
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
+
+                    Maintenance
+
+                </li>
+
+            </ul>
+
+        </nav>
+
+        <button
+            id="logoutBtn"
+            class="logout-btn">
+
+            <i class="fa-solid fa-right-from-bracket"></i>
+
+            Logout
+
+        </button>
+
+    </aside>
+
+    <!-- Main Content -->
+
+    <main class="main-content">
+
+        <header class="topbar">
+
+            <div>
+
+                <h1>
+
+                    Vendor Dashboard
+
+                </h1>
+
+                <p>
+
+                    Manage your print shop in real time.
+
+                </p>
+
+            </div>
+
+            <div class="top-actions">
+
+                <button id="refreshBtn">
+
+                    <i class="fa-solid fa-rotate"></i>
+
+                    Refresh
+
+                </button>
+
+            </div>
+
+        </header>
+
+
+              <!-- ==========================
+             Dashboard Cards
+        =========================== -->
+
+        <section class="dashboard-cards">
+
+            <div class="card revenue-card">
+
+                <div class="card-icon">
+
+                    <i class="fa-solid fa-indian-rupee-sign"></i>
+
+                </div>
+
+                <div class="card-info">
+
+                    <h4>Today's Revenue</h4>
+
+                    <h2 id="todayRevenue">
+
+                        ₹0
+
+                    </h2>
+
+                    <span>
+
+                        Live Revenue
+
+                    </span>
+
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <div class="card-icon">
+
+                    <i class="fa-solid fa-file-lines"></i>
+
+                </div>
+
+                <div class="card-info">
+
+                    <h4>Today's Orders</h4>
+
+                    <h2 id="todayOrders">
+
+                        0
+
+                    </h2>
+
+                    <span>
+
+                        Orders Today
+
+                    </span>
+
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <div class="card-icon">
+
+                    <i class="fa-solid fa-list-ol"></i>
+
+                </div>
+
+                <div class="card-info">
+
+                    <h4>Queue</h4>
+
+                    <h2 id="queueCount">
+
+                        0
+
+                    </h2>
+
+                    <span>
+
+                        Waiting Jobs
+
+                    </span>
+
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <div class="card-icon">
+
+                    <i class="fa-solid fa-print"></i>
+
+                </div>
+
+                <div class="card-info">
+
+                    <h4>Printing</h4>
+
+                    <h2 id="printingCount">
+
+                        0
+
+                    </h2>
+
+                    <span>
+
+                        Active Jobs
+
+                    </span>
+
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <div class="card-icon">
+
+                    <i class="fa-solid fa-circle-check"></i>
+
+                </div>
+
+                <div class="card-info">
+
+                    <h4>Completed</h4>
+
+                    <h2 id="completedOrders">
+
+                        0
+
+                    </h2>
+
+                    <span>
+
+                        Finished Today
+
+                    </span>
+
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <div class="card-icon">
+
+                    <i class="fa-solid fa-clock"></i>
+
+                </div>
+
+                <div class="card-info">
+
+                    <h4>Average Wait</h4>
+
+                    <h2 id="averageWait">
+
+                        0 min
+
+                    </h2>
+
+                    <span>
+
+                        Queue Time
+
+                    </span>
+
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <div class="card-icon">
+
+                    <i class="fa-solid fa-copy"></i>
+
+                </div>
+
+                <div class="card-info">
+
+                    <h4>Total Pages</h4>
+
+                    <h2 id="totalPages">
+
+                        0
+
+                    </h2>
+
+                    <span>
+
+                        Printed Today
+
+                    </span>
+
+                </div>
+
+            </div>
+
+            <div class="card">
+
+                <div class="card-icon">
+
+                    <i class="fa-solid fa-star"></i>
+
+                </div>
+
+                <div class="card-info">
+
+                    <h4>Customer Rating</h4>
+
+                    <h2 id="shopRating">
+
+                        5.0★
+
+                    </h2>
+
+                    <span>
+
+                        Average Rating
+
+                    </span>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- ==========================
+             Quick Actions
+        =========================== -->
+
+        <section class="quick-actions">
+
+            <button id="newOrderBtn">
+
+                <i class="fa-solid fa-plus"></i>
+
+                New Order
+
+            </button>
+
+            <button id="queueBtn">
+
+                <i class="fa-solid fa-list"></i>
+
+                Queue
+
+            </button>
+
+            <button id="downloadQRBtn">
+
+                <i class="fa-solid fa-download"></i>
+
+                Download QR
+
+            </button>
+
+            <button id="analyticsBtn">
+
+                <i class="fa-solid fa-chart-line"></i>
+
+                Analytics
+
+            </button>
+
+            <button id="maintenanceBtn">
+
+                <i class="fa-solid fa-screwdriver-wrench"></i>
+
+                Maintenance
+
+            </button>
+
+        </section>
+
+
+              <!-- ==========================================
+             Live Orders Table
+        =========================================== -->
+
+        <section class="table-section">
+
+            <div class="section-header">
+
+                <h2>
+
+                    Live Print Queue
+
+                </h2>
+
+                <div class="table-actions">
+
+                    <input
+                        type="text"
+                        id="searchOrder"
+                        placeholder="Search Queue / Customer">
+
+                    <select id="statusFilter">
+
+                        <option value="all">
+
+                            All Orders
+
+                        </option>
+
+                        <option value="pending">
+
+                            Pending
+
+                        </option>
+
+                        <option value="printing">
+
+                            Printing
+
+                        </option>
+
+                        <option value="completed">
+
+                            Completed
+
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+            <div class="table-container">
+
+                <table id="ordersTable">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>
+
+                                Queue
+
+                            </th>
+
+                            <th>
+
+                                Customer
+
+                            </th>
+
+                            <th>
+
+                                File
+
+                            </th>
+
+                            <th>
+
+                                Pages
+
+                            </th>
+
+                            <th>
+
+                                Copies
+
+                            </th>
+
+                            <th>
+
+                                Amount
+
+                            </th>
+
+                            <th>
+
+                                Payment
+
+                            </th>
+
+                            <th>
+
+                                Status
+
+                            </th>
+
+                            <th>
+
+                                Time
+
+                            </th>
+
+                            <th>
+
+                                Action
+
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="ordersBody">
+
+                        <!-- Loaded dynamically -->
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+        <!-- ==========================================
+             Current Queue
+        =========================================== -->
+
+        <section class="queue-section">
+
+            <div class="section-header">
+
+                <h2>
+
+                    Queue Status
+
+                </h2>
+
+            </div>
+
+            <div class="queue-wrapper">
+
+                <div class="queue-card">
+
+                    <h4>
+
+                        Now Printing
+
+                    </h4>
+
+                    <h1 id="currentQueue">
+
+                        --
+
+                    </h1>
+
+                </div>
+
+                <div class="queue-card">
+
+                    <h4>
+
+                        Next Queue
+
+                    </h4>
+
+                    <h1 id="nextQueue">
+
+                        --
+
+                    </h1>
+
+                </div>
+
+                <div class="queue-card">
+
+                    <h4>
+
+                        Waiting Jobs
+
+                    </h4>
+
+                    <h1 id="waitingJobs">
+
+                        0
+
+                    </h1>
+
+                </div>
+
+                <div class="queue-card">
+
+                    <h4>
+
+                        Estimated Wait
+
+                    </h4>
+
+                    <h1 id="estimatedWait">
+
+                        0 min
+
+                    </h1>
+
+                </div>
+
+            </div>
+
+        </section>
+
+              <!-- ==========================================
+             Analytics Section
+        =========================================== -->
+
+        <section class="analytics-section">
+
+            <div class="section-header">
+
+                <h2>
+
+                    Business Analytics
+
+                </h2>
+
+            </div>
+
+            <div class="analytics-grid">
+
+                <div class="chart-card">
+
+                    <h3>
+
+                        Revenue (Last 7 Days)
+
+                    </h3>
+
+                    <canvas id="revenueChart"></canvas>
+
+                </div>
+
+                <div class="chart-card">
+
+                    <h3>
+
+                        Orders Overview
+
+                    </h3>
+
+                    <canvas id="ordersChart"></canvas>
+
+                </div>
+
+                <div class="chart-card">
+
+                    <h3>
+
+                        Print Type
+
+                    </h3>
+
+                    <canvas id="printTypeChart"></canvas>
+
+                </div>
+
+                <div class="chart-card">
+
+                    <h3>
+
+                        Peak Business Hours
+
+                    </h3>
+
+                    <canvas id="peakHoursChart"></canvas>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- ==========================================
+             Shop Status
+        =========================================== -->
+
+        <section class="shop-status">
+
+            <div class="section-header">
+
+                <h2>
+
+                    Shop Controls
+
+                </h2>
+
+            </div>
+
+            <div class="status-grid">
+
+                <div class="status-card">
+
+                    <h4>
+
+                        Maintenance Mode
+
+                    </h4>
+
+                    <label class="switch">
+
+                        <input
+                            id="maintenanceToggle"
+                            type="checkbox">
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                    <p>
+
+                        Redirect customers to maintenance page.
+
+                    </p>
+
+                </div>
+
+                <div class="status-card">
+
+                    <h4>
+
+                        Accept New Orders
+
+                    </h4>
+
+                    <label class="switch">
+
+                        <input
+                            id="ordersToggle"
+                            type="checkbox"
+                            checked>
+
+                        <span class="slider"></span>
+
+                    </label>
+
+                    <p>
+
+                        Stop or accept incoming print orders.
+
+                    </p>
+
+                </div>
+
+                <div class="status-card">
+
+                    <h4>
+
+                        Printer Status
+
+                    </h4>
+
+                    <h2 id="printerStatus">
+
+                        Online
+
+                    </h2>
+
+                    <p>
+
+                        Current printer availability.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- ==========================================
+             QR Section
+        =========================================== -->
+
+        <section class="qr-section">
+
+            <div class="section-header">
+
+                <h2>
+
+                    Vendor QR Code
+
+                </h2>
+
+            </div>
+
+            <div class="qr-wrapper">
+
+                <div class="qr-preview">
+
+                    <img
+                        id="vendorQR"
+
+                        src=""
+
+                        alt="Vendor QR">
+
+                </div>
+
+                <div class="qr-actions">
+
+                    <button id="downloadPNG">
+
+                        <i class="fa-solid fa-image"></i>
+
+                        Download PNG
+
+                    </button>
+
+                    <button id="downloadSVG">
+
+                        <i class="fa-solid fa-file"></i>
+
+                        Download SVG
+
+                    </button>
+
+                    <button id="printQR">
+
+                        <i class="fa-solid fa-print"></i>
+
+                        Print QR
+
+                    </button>
+
+                    <button id="copyQRLink">
+
+                        <i class="fa-solid fa-link"></i>
+
+                        Copy QR Link
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+              <!-- ==========================================
+             Settings
+        =========================================== -->
+
+        <section class="settings-section">
+
+            <div class="section-header">
+
+                <h2>
+
+                    Vendor Settings
+
+                </h2>
+
+            </div>
+
+            <div class="settings-grid">
+
+                <div class="setting-card">
+
+                    <h3>
+
+                        Shop Information
+
+                    </h3>
+
+                    <input
+                        id="shopName"
+                        type="text"
+                        placeholder="Shop Name">
+
+                    <input
+                        id="ownerName"
+                        type="text"
+                        placeholder="Owner Name">
+
+                    <input
+                        id="shopPhone"
+                        type="text"
+                        placeholder="Phone Number">
+
+                    <textarea
+                        id="shopAddress"
+                        placeholder="Shop Address"></textarea>
+
+                </div>
+
+                <div class="setting-card">
+
+                    <h3>
+
+                        Razorpay
+
+                    </h3>
+
+                    <input
+                        id="razorpayKey"
+                        type="text"
+                        placeholder="Key ID">
+
+                    <input
+                        id="razorpaySecret"
+                        type="password"
+                        placeholder="Secret Key">
+
+                </div>
+
+                <div class="setting-card">
+
+                    <h3>
+
+                        Google Sheets
+
+                    </h3>
+
+                    <input
+                        id="sheetId"
+                        type="text"
+                        placeholder="Spreadsheet ID">
+
+                    <input
+                        id="serviceEmail"
+                        type="text"
+                        placeholder="Service Email">
+
+                </div>
+
+                <div class="setting-card">
+
+                    <h3>
+
+                        Email Settings
+
+                    </h3>
+
+                    <input
+                        id="smtpHost"
+                        type="text"
+                        placeholder="SMTP Host">
+
+                    <input
+                        id="smtpPort"
+                        type="number"
+                        placeholder="SMTP Port">
+
+                    <input
+                        id="smtpEmail"
+                        type="email"
+                        placeholder="Email">
+
+                    <input
+                        id="smtpPassword"
+                        type="password"
+                        placeholder="Password">
+
+                </div>
+
+            </div>
+
+            <button
+                id="saveSettings"
+                class="primary-btn">
+
+                Save Settings
+
+            </button>
+
+        </section>
+
+        <!-- ==========================================
+             Recent Activity
+        =========================================== -->
+
+        <section class="activity-section">
+
+            <div class="section-header">
+
+                <h2>
+
+                    Recent Activity
+
+                </h2>
+
+            </div>
+
+            <div
+                id="activityList"
+                class="activity-list">
+
+            </div>
+
+        </section>
+
+
+              <!-- ==========================================
+             Notification Panel
+        =========================================== -->
+
+        <div id="notificationPanel" class="notification-panel">
+
+            <div class="notification-header">
+
+                <h3>
+
+                    Notifications
+
+                </h3>
+
+            </div>
+
+            <div id="notificationList">
+
+                <!-- Dynamic Notifications -->
+
+            </div>
+
+        </div>
+
+        <!-- ==========================================
+             Loading Overlay
+        =========================================== -->
+
+        <div id="loadingOverlay" class="loading-overlay">
+
+            <div class="loader-box">
+
+                <div class="spinner"></div>
+
+                <p>
+
+                    Loading Dashboard...
+
+                </p>
+
+            </div>
+
+        </div>
+
+        <!-- ==========================================
+             Confirmation Modal
+        =========================================== -->
+
+        <div id="confirmModal" class="modal">
+
+            <div class="modal-content">
+
+                <h2 id="modalTitle">
+
+                    Confirmation
+
+                </h2>
+
+                <p id="modalMessage">
+
+                    Are you sure?
+
+                </p>
+
+                <div class="modal-buttons">
+
+                    <button
+                        id="confirmYes"
+                        class="primary-btn">
+
+                        Yes
+
+                    </button>
+
+                    <button
+                        id="confirmNo"
+                        class="secondary-btn">
+
+                        Cancel
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+<!-- Chart.js -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Dashboard JS -->
+
+<script src="dashboard.js"></script>
+
+</body>
+
+</html>

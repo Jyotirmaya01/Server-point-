@@ -3,6 +3,12 @@ import uuid
 
 from pathlib import Path
 from datetime import datetime
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
 
 # ==========================================
 # Vendor Database Configuration
@@ -86,7 +92,7 @@ def register_vendor(
     shop_name,
     owner_name,
     email,
-    password_hash,
+    password_hash = hash_password(password_hash),
     phone="",
     address=""
 
@@ -196,9 +202,11 @@ def verify_vendor(email, password_hash):
 
         return None
 
-    if vendor["password_hash"] != password_hash:
-
-        return None
+    if not verify_password(
+    password_hash,
+    vendor["password_hash"]
+):
+    return None
 
     return vendor
 
@@ -211,7 +219,23 @@ def generate_vendor_id():
 
     return "SP-" + uuid.uuid4().hex[:10].upper()
 
+# ==========================================
+# Password Security
+# ==========================================
 
+def hash_password(password):
+
+    return pwd_context.hash(password)
+
+
+def verify_password(password, hashed_password):
+
+    return pwd_context.verify(
+        password,
+        hashed_password
+    )
+
+  
 initialize_vendor_database()
 
 print("Vendor Database Ready")

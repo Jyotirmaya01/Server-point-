@@ -39,6 +39,8 @@ def initialize_database():
 
             job_id TEXT UNIQUE NOT NULL,
 
+            vendor_id TEXT NOT NULL,
+
             original_name TEXT NOT NULL,
 
             saved_name TEXT NOT NULL,
@@ -90,6 +92,7 @@ print("ServePrint Database Ready")
 # ==========================
 
 def save_print_job(
+  vendor_id,
     job_id,
     original_name,
     saved_name,
@@ -104,6 +107,7 @@ def save_print_job(
 
     cursor.execute("""
         INSERT INTO print_jobs (
+        vendor_id,
             job_id,
             original_name,
             saved_name,
@@ -112,8 +116,9 @@ def save_print_job(
             queue_number,
             total_amount
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
+      vendor_id,
         job_id,
         original_name,
         saved_name,
@@ -309,19 +314,23 @@ def start_printing(job_id):
 
 def complete_printing(job_id):
 
+    job = get_print_job(job_id)
+
     update_printer_status(
         job_id,
         "Completed"
     )
 
-    refresh_queue()
+    refresh_queue(
+        job["vendor_id"]
+    )
 
 
 # ==========================
 # Queue Number
 # ==========================
 
-def get_next_queue_number():
+def get_next_queue_number(vendor_id):
 
     connection = get_connection()
 
@@ -333,7 +342,9 @@ def get_next_queue_number():
 
         FROM print_jobs
 
-    """)
+        WHERE vendor_id = ?
+
+    """, (vendor_id,))
 
     result = cursor.fetchone()
 
@@ -494,9 +505,55 @@ def mark_payment_success(
 
     )
 
+# ==========================
+# Assign Queue After Payment
+# Transaction Safe
+# ==========================
+
+def assign_queue_after_payment(vendor_id, job_id, payment_id):
+
+    connection = get_connection()
+
+    # Lock database for this transaction
+    connection.execute("BEGIN IMMEDIATE")
+
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT COALESCE(MAX(queue_number), 0)
+        FROM print_jobs
+        WHERE vendor_id = ?
+AND  payment_status='Paid'
+        AND printer_status!='Completed'
+    """, (vendor_id,))
+
+    queue_number = cursor.fetchone()[0] + 1
+
+    cursor.execute("""
+        UPDATE print_jobs
+        SET
+            payment_status='Paid',
+            payment_id=?,
+            printer_status='Waiting',
+            queue_number=?
+        WHERE job_id=?
+    """, (
+      payment_id,
+        queue_number,
+        job_id
+    ))
+
+    connection.commit()
+
+    connection.close()
+
+    refresh_queue(vendor_id)
+
+    return queue_number
+
 # refresh queue 
 
-def refresh_queue():
+def refresh_queue(vendor_id):
 
     connection = get_connection()
     cursor = connection.cursor()
@@ -504,10 +561,11 @@ def refresh_queue():
     cursor.execute("""
         SELECT job_id
         FROM print_jobs
-        WHERE payment_status='Paid'
+        WHERE vendor_id = ?
+AND payment_status='Paid'
 AND printer_status!='Completed'
         ORDER BY created_at ASC
-    """)
+    """, (vendor_id,))
 
     jobs = cursor.fetchall()
 
@@ -541,6 +599,10 @@ def cleanup_expired_jobs():
         datetime.now() - timedelta(minutes=2)
     ).strftime("%Y-%m-%d %H:%M:%S")
 
+    # ----------------------------------
+    # Collect expired files
+    # ----------------------------------
+
     cursor.execute("""
         SELECT saved_name
         FROM print_jobs
@@ -548,7 +610,30 @@ def cleanup_expired_jobs():
         AND created_at <= ?
     """, (expiry_time,))
 
-    expired_files = [row["saved_name"] for row in cursor.fetchall()]
+    expired_files = [
+        row["saved_name"]
+        for row in cursor.fetchall()
+    ]
+
+    # ----------------------------------
+    # Collect affected vendors BEFORE delete
+    # ----------------------------------
+
+    cursor.execute("""
+        SELECT DISTINCT vendor_id
+        FROM print_jobs
+        WHERE payment_status='Pending'
+        AND created_at <= ?
+    """, (expiry_time,))
+
+    affected_vendors = [
+        row["vendor_id"]
+        for row in cursor.fetchall()
+    ]
+
+    # ----------------------------------
+    # Delete expired jobs
+    # ----------------------------------
 
     cursor.execute("""
         DELETE FROM print_jobs
@@ -559,8 +644,145 @@ def cleanup_expired_jobs():
     connection.commit()
     connection.close()
 
-    refresh_queue()
+    # ----------------------------------
+    # Refresh only affected vendors
+    # ----------------------------------
+
+    for vendor_id in affected_vendors:
+
+        refresh_queue(vendor_id)
 
     return expired_files
 
+# ==========================================
+# Vendor Dashboard
+# ==========================================
+
+def get_vendor_dashboard(vendor_id):
+
+    connection = get_connection()
+
+    cursor = connection.cursor()
+
+    # Today's Revenue
+    cursor.execute("""
+        SELECT COALESCE(SUM(total_amount),0)
+        FROM print_jobs
+        WHERE vendor_id=?
+        AND payment_status='Paid'
+        AND DATE(created_at)=DATE('now')
+    """,(vendor_id,))
+
+    today_revenue = cursor.fetchone()[0]
+
+    # Today's Orders
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM print_jobs
+        WHERE vendor_id=?
+        AND DATE(created_at)=DATE('now')
+    """,(vendor_id,))
+
+    today_orders = cursor.fetchone()[0]
+
+    # Waiting Queue
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM print_jobs
+        WHERE vendor_id=?
+        AND printer_status='Waiting'
+    """,(vendor_id,))
+
+    queue_jobs = cursor.fetchone()[0]
+
+    # Printing Jobs
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM print_jobs
+        WHERE vendor_id=?
+        AND printer_status='Printing'
+    """,(vendor_id,))
+
+    printing_jobs = cursor.fetchone()[0]
+
+    # Completed
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM print_jobs
+        WHERE vendor_id=?
+        AND printer_status='Completed'
+        AND DATE(created_at)=DATE('now')
+    """,(vendor_id,))
+
+    completed_jobs = cursor.fetchone()[0]
+
+    # Pages
+    cursor.execute("""
+        SELECT COALESCE(SUM(total_pages),0)
+        FROM print_jobs
+        WHERE vendor_id=?
+        AND DATE(created_at)=DATE('now')
+    """,(vendor_id,))
+
+    total_pages = cursor.fetchone()[0]
+
+    connection.close()
+
+    return {
+
+        "today_revenue":today_revenue,
+
+        "today_orders":today_orders,
+
+        "queue_jobs":queue_jobs,
+
+        "printing_jobs":printing_jobs,
+
+        "completed_jobs":completed_jobs,
+
+        "average_wait":queue_jobs*2,
+
+        "total_pages":total_pages,
+
+        "rating":5.0
+
+    }
+
+# ==========================================
+# Vendor Orders
+# ==========================================
+
+def get_vendor_orders(vendor_id):
+
+    connection = get_connection()
+
+    cursor = connection.cursor()
+
+    cursor.execute("""
+
+        SELECT
+
+            job_id,
+            queue_number,
+            original_name,
+            copies,
+            total_pages,
+            total_amount,
+            payment_status,
+            printer_status,
+            created_at
+
+        FROM print_jobs
+
+        WHERE vendor_id = ?
+
+        ORDER BY queue_number ASC
+
+    """, (vendor_id,))
+
+    jobs = cursor.fetchall()
+
+    connection.close()
+
+    return [dict(job) for job in jobs]
   

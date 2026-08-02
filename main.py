@@ -11,6 +11,7 @@ from typing import Optional
 from pydantic import BaseModel
 from pathlib import Path
 from datetime import datetime
+import asyncio
 import shutil
 import uuid
 
@@ -45,10 +46,13 @@ from database import (
     get_next_queue_number,
     mark_payment_pending,
     mark_payment_success,
+    assign_queue_after_payment,
     start_printing,
     complete_printing,
     cleanup_expired_jobs,
     update_print_job,
+    get_vendor_dashboard,
+    get_vendor_orders,
 
 )
 
@@ -71,8 +75,34 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# ==========================================
+# Background Cleanup Scheduler
+# ==========================================
+
+async def cleanup_scheduler():
+
+    while True:
+
+        try:
+
+            cleanup_expired_uploads()
+
+            logger.info("Expired jobs cleaned.")
+
+        except Exception as e:
+
+            logger.error(f"Cleanup Scheduler Error: {e}")
+
+        await asyncio.sleep(30)
+
 initialize_database()
 
+@app.on_event("startup")
+async def startup_event():
+
+    asyncio.create_task(
+        cleanup_scheduler()
+    )
 # ==========================================
 # CORS
 # ==========================================
@@ -437,6 +467,7 @@ def status():
 
 @app.post("/upload")
 async def upload_file(
+  vendor_id: str = Form(...),
     file: UploadFile = File(...),
     copies: int = Form(1),
     print_type: str = Form("bw"),
@@ -560,12 +591,15 @@ async def upload_file(
 
     logger.info(f"Detected Pages: {total_pages}")
 
-    # ------------------------------
+      # ------------------------------
     # Queue
     # ------------------------------
 
-    queue_number = get_next_queue_number()
-    waiting_time = estimate_wait_time(queue_number)
+    # Job has not been paid yet,
+    # so it is not in the queue.
+
+    queue_number = 0
+    waiting_time = 0
 
     # ------------------------------
     # Calculate Price
@@ -582,6 +616,7 @@ async def upload_file(
     # ------------------------------
 
     save_print_job(
+      vendor_id=vendor_id,
         job_id=job_id,
         original_name=file.filename,
         saved_name=filename,
@@ -614,16 +649,16 @@ async def upload_file(
         "saved_name": filename,
         "file_size": file_size,
         "uploaded_at": datetime.now().isoformat(),
-        "queue_number": queue_number,
+        "queue_number": 0,
         "total_pages": total_pages,
         "total_amount": total_amount,
-        "estimated_wait_time": waiting_time,
+        "estimated_wait_time": 0,
         "copies": copies,
         "print_type": print_type,
         "paper_size": paper_size,
         "page_range": page_range,
         "payment_status": "Pending",
-        "printer_status": "Waiting"
+        "printer_status": "Pending Payment"
     }
 
 
@@ -790,13 +825,29 @@ def printer_status(job_id: str, status: str):
 
 @app.post("/payment/{job_id}")
 def verify_payment(job_id: str, payment_id: str):
-    mark_payment_success(job_id, payment_id)
+  
+      job = get_print_job(job_id)
+
+if not job:
+    raise HTTPException(
+        status_code=404,
+        detail="Job not found"
+    )
+
+queue_number = assign_queue_after_payment(
+    job["vendor_id"],
+    job_id,
+    payment_id
+)
 
     return {
         "success": True,
         "job_id": job_id,
         "payment_id": payment_id,
-        "payment_status": "Paid"
+        "payment_status": "Paid",
+        "queue_number": queue_number,
+        "estimated_wait_time": (queue_number - 1) * 2,
+        "printer_status": "Waiting"
     }
 
 
@@ -830,6 +881,66 @@ def complete_job(job_id: str):
     }
 
 
+# ==========================================
+# Vendor Dashboard API
+# ==========================================
+
+@app.get("/vendor/{vendor_id}/dashboard")
+def vendor_dashboard(vendor_id:str):
+
+    return get_vendor_dashboard(vendor_id)
+
+
+# ==========================================
+# Vendor Orders API
+# ==========================================
+
+@app.get("/vendor/{vendor_id}/orders")
+def vendor_orders(vendor_id: str):
+
+    return get_vendor_orders(vendor_id)
+
+# ==========================================
+# Vendor Orders API
+# ==========================================
+
+@app.get("/vendor/{vendor_id}/orders")
+def vendor_orders(vendor_id: str):
+
+    return get_vendor_orders(vendor_id)
+
+  
+# ==========================================
+# Vendor Orders
+# ==========================================
+
+def get_vendor_orders(vendor_id):
+
+    connection = get_connection()
+
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT
+            job_id,
+            queue_number,
+            original_name,
+            total_pages,
+            copies,
+            total_amount,
+            payment_status,
+            printer_status,
+            created_at
+        FROM print_jobs
+        WHERE vendor_id = ?
+        ORDER BY created_at DESC
+    """, (vendor_id,))
+
+    jobs = cursor.fetchall()
+
+    connection.close()
+
+    return [dict(job) for job in jobs]
 # ==========================================
 # Global Exception Handler
 # ==========================================

@@ -108,12 +108,11 @@ transactionId.textContent =
     if(printedPages)
         printedPages.textContent = "0";
 
-    if(ordersAhead)
-        ordersAhead.textContent = random(0,3);
-
-    if(waitingTime)
-        waitingTime.textContent =
-            Number(ordersAhead.textContent) * 2 + " min";
+    if (ordersAhead)
+    ordersAhead.textContent = "-";
+  
+  if (waitingTime)
+    waitingTime.textContent = "-";
 
 }
 
@@ -225,19 +224,6 @@ console.log({
 // SUCCESS PART 3
 // ===============================
 
-// Update waiting time every 15 seconds
-setInterval(function () {
-
-    const orders = random(0,3);
-
-    if(ordersAhead)
-        ordersAhead.textContent = orders;
-
-    if(waitingTime)
-        waitingTime.textContent = (orders * 2) + " min";
-
-},15000);
-
 
 // Estimated completion time
 function getCompletionTime(){
@@ -328,6 +314,13 @@ async function loadJob() {
         order = job;
 
         fillDetails();
+
+      if (ordersAhead)
+    ordersAhead.textContent = job.orders_ahead;
+
+if (waitingTime)
+    waitingTime.textContent =
+        job.estimated_wait_time + " min";
 
         if (printingStatus) {
 

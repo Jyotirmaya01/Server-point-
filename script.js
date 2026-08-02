@@ -94,10 +94,9 @@ function init() {
 
     printSummary.textContent = "Black & White";
 
-    queueCount.textContent = random(0,5);
-
-    waitingTime.textContent =
-        queueCount.textContent * 2 + " min";
+    queueCount.textContent = "-";
+  
+  waitingTime.textContent = "-";
 
     updatePrice();
 
@@ -281,7 +280,17 @@ async function refreshOrder() {
 
     try {
 
-        const result = await uploadDocument();
+        let result;
+
+if (currentJob) {
+
+    result = await updateExistingJob();
+
+} else {
+
+    result = await uploadDocument();
+
+}
 
         if (!result) return;
 
@@ -565,17 +574,6 @@ copies.addEventListener("keyup", function () {
     saveOrder();
 
 });
-
-// Calculate queue every 20 seconds
-setInterval(function () {
-
-    const orders = random(0, 5);
-
-    queueCount.textContent = orders;
-
-    waitingTime.textContent = orders * 2 + " min";
-
-}, 20000);
 
 
 // Backend Ready Object
@@ -903,6 +901,54 @@ async function uploadDocument() {
             "Upload Failed (" + response.status + "): " +
             (detail || "No details returned")
         );
+
+    }
+
+    return await response.json();
+
+}
+
+async function updateExistingJob() {
+
+    if (!currentJob) return null;
+
+    const response = await fetch(
+
+        API_URL + "/jobs/" + currentJob.job_id,
+
+        {
+
+            method: "PUT",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+
+                job_id: currentJob.job_id,
+
+                copies: Number(copies.value),
+
+                print_type: document.querySelector(
+                    'input[name="printType"]:checked'
+                ).value,
+
+                paper_size: paperSize.value,
+
+                orientation: orientation.value,
+
+                page_range: pageRange.value || "All"
+
+            })
+
+        }
+
+    );
+
+    if (!response.ok) {
+
+        throw new Error("Failed to update print job.");
 
     }
 
