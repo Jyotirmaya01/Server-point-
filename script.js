@@ -851,6 +851,18 @@ async function uploadDocument() {
 
     const formData = new FormData();
 
+  // Vendor ID from QR / URL
+    const vendorId = new URLSearchParams(window.location.search).get("vendor_id");
+
+  console.log("Vendor ID:", vendorId);
+alert("Vendor ID = " + vendorId);
+    
+    if (!vendorId) {
+        throw new Error("Vendor ID not found.");
+    }
+    
+    formData.append("vendor_id", vendorId);
+
     formData.append("file", file);
 
     formData.append("copies", copies.value);
