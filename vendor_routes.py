@@ -4,7 +4,8 @@ from pydantic import BaseModel
 from vendor_database import (
     register_vendor,
     verify_vendor,
-    get_vendor_by_id
+    get_vendor_by_id,
+    hash_password,
 )
 
 router = APIRouter(

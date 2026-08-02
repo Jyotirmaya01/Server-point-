@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+    <title>Vendor Signup | ServePrint</title>
+
+    <link
+        rel="stylesheet"
+        href="vendor.css">
+
+    <link
+        rel="preconnect"
+        href="https://fonts.googleapis.com">
+
+    <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossorigin>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+</head>
+
+<body>
+
+<div class="background">
+
+    <div class="gradient gradient1"></div>
+
+    <div class="gradient gradient2"></div>
+
+</div>
+
+<div class="signup-container">
+
+    <div class="signup-card">
+
+        <div class="logo-section">
+
+            <div class="logo">
+
+                <i class="fa-solid fa-print"></i>
+
+            </div>
+
+            <h1>ServePrint</h1>
+
+            <p>
+
+                Start Your Own Smart Printing Business
+
+            </p>
+
+        </div>
+
+        <div class="title-section">
+
+            <h2>Create Vendor Account</h2>
+
+            <p>
+
+                Register your print shop and receive your own QR Code.
+
+            </p>
+
+        </div>
+
+        <form
+            id="signupForm">
+
+            <div class="input-group">
+
+                <label>
+
+                    Shop Name
+
+                </label>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-store"></i>
+
+                    <input
+                        type="text"
+                        id="shopName"
+                        placeholder="ABC Print Shop"
+                        required>
+
+                </div>
+
+            </div>
+
+            <div class="input-group">
+
+                <label>
+
+                    Owner Name
+
+                </label>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-user"></i>
+
+                    <input
+                        type="text"
+                        id="ownerName"
+                        placeholder="John Doe"
+                        required>
+
+                </div>
+
+            </div>
+
+            <div class="input-group">
+
+                <label>
+
+                    Email Address
+
+                </label>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-envelope"></i>
+
+                    <input
+                        type="email"
+                        id="email"
+                        placeholder="example@email.com"
+                        required>
+
+                </div>
+
+            </div>
+
+            <div class="input-group">
+
+                <label>
+
+                    Phone Number
+
+                </label>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-phone"></i>
+
+                    <input
+                        type="tel"
+                        id="phone"
+                        maxlength="10"
+                        placeholder="9876543210"
+                        required>
+
+                </div>
+
+            </div>
+
+
+                      <div class="input-group">
+
+                <label>
+
+                    Password
+
+                </label>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-lock"></i>
+
+                    <input
+                        type="password"
+                        id="password"
+                        placeholder="Create Password"
+                        required>
+
+                    <button
+                        type="button"
+                        class="toggle-password"
+                        id="togglePassword">
+
+                        <i class="fa-solid fa-eye"></i>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="input-group">
+
+                <label>
+
+                    Confirm Password
+
+                </label>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-lock"></i>
+
+                    <input
+                        type="password"
+                        id="confirmPassword"
+                        placeholder="Confirm Password"
+                        required>
+
+                    <button
+                        type="button"
+                        class="toggle-password"
+                        id="toggleConfirmPassword">
+
+                        <i class="fa-solid fa-eye"></i>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div class="input-group">
+
+                <label>
+
+                    Shop Address
+
+                </label>
+
+                <div class="input-box textarea-box">
+
+                    <i class="fa-solid fa-location-dot"></i>
+
+                    <textarea
+                        id="address"
+                        rows="4"
+                        placeholder="Enter Complete Shop Address"
+                        required></textarea>
+
+                </div>
+
+            </div>
+
+            <div class="checkbox-group">
+
+                <label class="checkbox-container">
+
+                    <input
+                        type="checkbox"
+                        id="terms"
+                        required>
+
+                    <span class="checkmark"></span>
+
+                    I agree to the
+
+                    <a href="#">
+                        Terms &
+                        Conditions
+                    </a>
+
+                    and
+
+                    <a href="#">
+                        Privacy Policy
+                    </a>
+
+                </label>
+
+            </div>
+
+            <div
+                id="errorBox"
+                class="error-box">
+
+            </div>
+
+            <button
+                type="submit"
+                id="signupBtn"
+                class="signup-btn">
+
+                <span id="signupText">
+
+                    Create Print Shop
+
+                </span>
+
+                <span
+                    id="signupLoader"
+                    class="loader">
+
+                </span>
+
+            </button>
+
+            <div class="divider">
+
+                <span>
+
+                    OR
+
+                </span>
+
+            </div>
+
+            <div class="login-section">
+
+                <p>
+
+                    Already have a vendor account?
+
+                </p>
+
+                <a
+                    href="vendor_login.html">
+
+                    Login Here
+
+                </a>
+
+            </div>
+
+            <div class="benefits">
+
+                <h3>
+
+                    Your Vendor Account Includes
+
+                </h3>
+
+                <ul>
+
+                    <li>
+
+                        <i class="fa-solid fa-circle-check"></i>
+
+                        Unique QR Code
+
+                    </li>
+
+                    <li>
+
+                        <i class="fa-solid fa-circle-check"></i>
+
+                        Vendor Dashboard
+
+                    </li>
+
+                    <li>
+
+                        <i class="fa-solid fa-circle-check"></i>
+
+                        Queue Management
+
+                    </li>
+
+                    <li>
+
+                        <i class="fa-solid fa-circle-check"></i>
+
+                        Razorpay Integration
+
+                    </li>
+
+                    <li>
+
+                        <i class="fa-solid fa-circle-check"></i>
+
+                        Google Sheets Integration
+
+                    </li>
+
+                    <li>
+
+                        <i class="fa-solid fa-circle-check"></i>
+
+                        Sales Analytics
+
+                    </li>
+
+                </ul>
+
+            </div>
+
+
+                      <!-- Success Popup -->
+
+            <div
+                id="successPopup"
+                class="success-popup">
+
+                <div class="popup-card">
+
+                    <div class="popup-icon">
+
+                        <i class="fa-solid fa-circle-check"></i>
+
+                    </div>
+
+                    <h2>
+
+                        Registration Successful
+
+                    </h2>
+
+                    <p>
+
+                        Your Print Shop has been created successfully.
+
+                    </p>
+
+                    <div class="vendor-id-box">
+
+                        <small>
+
+                            Your Vendor ID
+
+                        </small>
+
+                        <h3
+                            id="vendorId">
+
+                            SP-XXXXXXXX
+
+                        </h3>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        id="continueBtn"
+                        class="continue-btn">
+
+                        Continue to Login
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </form>
+
+        <div class="footer">
+
+            <p>
+
+                © 2026 ServePrint
+
+            </p>
+
+            <small>
+
+                Smart QR Printing Platform for Every Print Shop
+
+            </small>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="vendor_signup.js"></script>
+
+</body>
+
+</html>

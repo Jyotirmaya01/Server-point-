@@ -5,12 +5,6 @@ from pathlib import Path
 from datetime import datetime
 from passlib.context import CryptContext
 
-from vendor_database import (
-    register_vendor,
-    verify_vendor,
-    hash_password,
-    get_vendor_by_id,
-)
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
