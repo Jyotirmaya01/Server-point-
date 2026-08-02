@@ -24,6 +24,7 @@ from fastapi import (
     Request
 )
 from vendor_routes import router as vendor_router
+from vendor_database import get_vendor_by_id
 
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware

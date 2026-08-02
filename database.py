@@ -790,33 +790,3 @@ def get_vendor_orders(vendor_id):
  # ==========================================
 # Vendor QR
 # ==========================================
-
-def get_vendor_qr(vendor_id):
-
-    connection = get_connection()
-
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT vendor_id,
-               shop_name
-        FROM vendors
-        WHERE vendor_id=?
-    """,(vendor_id,))
-
-    vendor = cursor.fetchone()
-
-    connection.close()
-
-    if vendor is None:
-
-        return None
-
-    return {
-
-        "vendor_id":vendor["vendor_id"],
-
-        "shop_name":vendor["shop_name"]
-
-    } 
-  
