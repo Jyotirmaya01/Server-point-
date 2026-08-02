@@ -467,7 +467,7 @@ def status():
 
 @app.post("/upload")
 async def upload_file(
-  vendor_id: str = Form(...),
+    vendor_id: str = Form(...),
     file: UploadFile = File(...),
     copies: int = Form(1),
     print_type: str = Form("bw"),
@@ -591,7 +591,7 @@ async def upload_file(
 
     logger.info(f"Detected Pages: {total_pages}")
 
-      # ------------------------------
+    # ------------------------------
     # Queue
     # ------------------------------
 
@@ -608,7 +608,7 @@ async def upload_file(
     total_amount = calculate_price(
         pages=total_pages,
         copies=copies,
-      print_type=print_type
+        print_type=print_type
     )
 
     # ------------------------------
@@ -616,7 +616,7 @@ async def upload_file(
     # ------------------------------
 
     save_print_job(
-      vendor_id=vendor_id,
+        vendor_id=vendor_id,
         job_id=job_id,
         original_name=file.filename,
         saved_name=filename,
@@ -825,20 +825,19 @@ def printer_status(job_id: str, status: str):
 
 @app.post("/payment/{job_id}")
 def verify_payment(job_id: str, payment_id: str):
-  
-      job = get_print_job(job_id)
+    job = get_print_job(job_id)
 
-if not job:
-    raise HTTPException(
-        status_code=404,
-        detail="Job not found"
+    if not job:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found"
+        )
+
+    queue_number = assign_queue_after_payment(
+        job["vendor_id"],
+        job_id,
+        payment_id
     )
-
-queue_number = assign_queue_after_payment(
-    job["vendor_id"],
-    job_id,
-    payment_id
-)
 
     return {
         "success": True,
@@ -901,47 +900,6 @@ def vendor_orders(vendor_id: str):
     return get_vendor_orders(vendor_id)
 
 # ==========================================
-# Vendor Orders API
-# ==========================================
-
-@app.get("/vendor/{vendor_id}/orders")
-def vendor_orders(vendor_id: str):
-
-    return get_vendor_orders(vendor_id)
-
-  
-# ==========================================
-# Vendor Orders
-# ==========================================
-
-def get_vendor_orders(vendor_id):
-
-    connection = get_connection()
-
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT
-            job_id,
-            queue_number,
-            original_name,
-            total_pages,
-            copies,
-            total_amount,
-            payment_status,
-            printer_status,
-            created_at
-        FROM print_jobs
-        WHERE vendor_id = ?
-        ORDER BY created_at DESC
-    """, (vendor_id,))
-
-    jobs = cursor.fetchall()
-
-    connection.close()
-
-    return [dict(job) for job in jobs]
-# ==========================================
 # Global Exception Handler
 # ==========================================
 
@@ -957,4 +915,3 @@ async def global_exception_handler(request: Request, exc: Exception):
             "message": "Internal Server Error",
         }
     )
-
