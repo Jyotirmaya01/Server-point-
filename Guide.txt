@@ -1,61 +1,105 @@
+ServePrint Project Guide
+
+Project Name
+
+ServePrint – Multi-Vendor Smart Printing Platform
+
+Why are we building this project?
+
+ServePrint helps print shops reduce waiting time and organize orders
+digitally. Customers scan a QR code, upload files, choose print
+settings, pay, and receive a queue number before reaching the shop.
+
+Main Goals
+
+-   Reduce waiting time.
+-   Automatic queue management.
+-   Support multiple vendors.
+-   Live vendor dashboard.
+-   Protect customer privacy.
+-   Mobile-friendly workflow.
+
+Technology Stack
+
+Frontend
+
+-   HTML
+-   CSS
+-   JavaScript
+
+Backend
+
+-   Python
+-   FastAPI
+
+Database
+
+-   SQLite
+
+Hosting
+
+-   Frontend: Vercel
+-   Backend: Render
+
+Workflow
+
+Customer
+
+1.  Scan QR code.
+2.  Upload document.
+3.  Page count.
+4.  Price calculation.
+5.  Payment.
+6.  Queue number.
+7.  Print completed.
+
+Vendor
+
+1.  Sign up.
+2.  Log in.
+3.  View dashboard.
+4.  Manage orders.
+5.  Monitor queue.
+6.  View analytics.
+
+Current Features
+
+-   Multi-vendor support
+-   Vendor authentication
+-   Upload system
+-   Page counting
+-   Price calculation
+-   Queue management
+-   Background cleanup
+-   Vendor dashboard APIs
+-   Vendor orders API
+-   Vendor QR API
+
+Future Features
+
+-   Dashboard analytics
+-   Maintenance mode
+-   Google Sheets automation
+-   Vendor payment integration
+-   Reports
+-   Notifications
+
+Backend Files
+
+-   main.py: API server
+-   database.py: print jobs and queue
+-   vendor_database.py: vendor management
+-   vendor_routes.py: vendor APIs
+
 Development Roadmap
 
-Phase 1
-HTML home page
-Upload PDF
-Select B&W/Color
-Select copies
+Phase 1: Core printing system Phase 2: Vendor dashboard Phase 3:
+Analytics and automations Phase 4: Payment integrations
 
-Phase 2
-Python upload API
-Save PDF to Supabase Storage
+Vision
 
-Phase 3
-Count PDF pages
-Calculate price
-
-Phase 4
-Razorpay payment
-
-Phase 5
-Payment webhook
-
-Phase 6
-n8n automation
-
-Phase 7
-PrintNode integration
-
-Phase 8
-Admin dashboard
-
-phase 9
-add data to spreedsheet to track sales
-
-flow work
-Customer
-     │
-     ▼
-Upload PDF
-     │
-     ▼
-Select Print Options
-     │
-     ▼
-Pay via UPI
-     │
-     ▼
-Payment Verified
-     │
-     ▼
-Print Starts
-     │
-     ▼
-Print Completed
-     │
-     ├──────────────► Store Order in Supabase
-     │
-     └──────────────► Add Row to Google Sheets
+Build a SaaS platform that allows any print shop to manage customers,
+orders, payments, queues, and analytics from one dashboard.
 
 
 

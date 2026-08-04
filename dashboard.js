@@ -373,3 +373,334 @@ async function loadQRCode(){
     `${API_URL}/vendor/${vendorId}/qr`;
 
 }
+
+
+// ==========================================
+// Dashboard Data Loader
+// ==========================================
+
+let vendorId = localStorage.getItem("vendor_id");
+
+if (!vendorId) {
+    window.location.href = "vendor-login.html";
+}
+
+// ------------------------------------------
+// Load Dashboard Statistics
+// ------------------------------------------
+
+async function loadDashboard() {
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE_URL}/vendor/${vendorId}/dashboard`
+        );
+
+        if (!response.ok) {
+            throw new Error("Failed to load dashboard.");
+        }
+
+        const data = await response.json();
+
+        document.getElementById("todayRevenue").textContent =
+            `₹${data.today_revenue}`;
+
+        document.getElementById("todayOrders").textContent =
+            data.today_orders;
+
+        document.getElementById("queueCount").textContent =
+            data.queue_jobs;
+
+        document.getElementById("printingCount").textContent =
+            data.printing_jobs;
+
+        document.getElementById("completedOrders").textContent =
+            data.completed_jobs;
+
+        document.getElementById("totalPages").textContent =
+            data.total_pages;
+
+        document.getElementById("averageWait").textContent =
+            `${data.average_wait} min`;
+
+        document.getElementById("shopRating").textContent =
+            data.rating;
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        showToast(
+            "Unable to load dashboard.",
+            "error"
+        );
+
+    }
+
+}
+
+// ==========================================
+// Load Vendor Orders
+// ==========================================
+
+async function loadOrders() {
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE_URL}/vendor/${vendorId}/orders`
+        );
+
+        if (!response.ok) {
+
+            throw new Error("Unable to load orders.");
+
+        }
+
+        const orders = await response.json();
+
+        const tbody = document.getElementById("ordersBody");
+
+        tbody.innerHTML = "";
+
+        orders.forEach(order => {
+
+            tbody.innerHTML += `
+
+<tr>
+
+<td>${order.queue_number || "-"}</td>
+
+<td>${order.original_name}</td>
+
+<td>${order.total_pages}</td>
+
+<td>${order.copies}</td>
+
+<td>₹${order.total_amount}</td>
+
+<td>${order.payment_status}</td>
+
+<td>${order.printer_status}</td>
+
+<td>${formatTime(order.created_at)}</td>
+
+</tr>
+
+`;
+
+        });
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        showToast(
+            "Unable to load orders.",
+            "error"
+        );
+
+    }
+
+}
+
+// ==========================================
+// Format Date & Time
+// ==========================================
+
+function formatTime(dateString) {
+
+    const date = new Date(dateString);
+
+    return date.toLocaleString();
+
+}
+
+// ==========================================
+// Auto Refresh Dashboard
+// ==========================================
+
+async function refreshDashboard() {
+
+    await loadDashboard();
+
+    await loadOrders();
+
+}
+
+refreshDashboard();
+
+setInterval(refreshDashboard, 30000);
+
+// ==========================================
+// Vendor QR
+// ==========================================
+
+let vendorQRLink = "";
+
+async function loadVendorQR() {
+
+    try {
+
+        const response = await fetch(
+            `${API_BASE_URL}/vendor/${vendorId}/qr`
+        );
+
+        if (!response.ok) {
+
+            throw new Error("Unable to load QR");
+
+        }
+
+        const data = await response.json();
+
+        vendorQRLink = data.url;
+
+        document.getElementById("vendorShopName").textContent =
+            data.shop_name;
+
+        document.getElementById("vendorQR").src =
+            "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=" +
+            encodeURIComponent(data.url);
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+    }
+
+}
+
+// ==========================================
+// Copy QR Link
+// ==========================================
+
+document
+.getElementById("copyQRLink")
+.addEventListener("click", async () => {
+
+    try {
+
+        await navigator.clipboard.writeText(vendorQRLink);
+
+        showToast(
+            "QR Link copied.",
+            "success"
+        );
+
+    }
+
+    catch {
+
+        showToast(
+            "Unable to copy.",
+            "error"
+        );
+
+    }
+
+});
+
+// ==========================================
+// Download QR
+// ==========================================
+
+document
+.getElementById("downloadPNG")
+.addEventListener("click", () => {
+
+    const image =
+        document.getElementById("vendorQR");
+
+    const link =
+        document.createElement("a");
+
+    link.href = image.src;
+
+    link.download = "ServePrint_QR.png";
+
+    link.click();
+
+});
+
+// ==========================================
+// Print QR
+// ==========================================
+
+document
+.getElementById("printQR")
+.addEventListener("click", () => {
+
+    const image =
+        document.getElementById("vendorQR");
+
+    const win =
+        window.open("");
+
+    win.document.write(
+
+        `<img src="${image.src}" style="width:300px">`
+
+    );
+
+    win.print();
+
+});
+
+// ==========================================
+// Refresh
+// ==========================================
+
+document
+.getElementById("refreshBtn")
+.addEventListener("click", async () => {
+
+    await refreshDashboard();
+
+    await loadVendorQR();
+
+    showToast(
+        "Dashboard Updated",
+        "success"
+    );
+
+});
+
+// ==========================================
+// Logout
+// ==========================================
+
+document
+.getElementById("logoutBtn")
+.addEventListener("click", () => {
+
+    localStorage.removeItem("vendor_id");
+
+    localStorage.removeItem("vendor_token");
+
+    window.location.href =
+        "vendor-login.html";
+
+});
+
+// ==========================================
+// Initial Dashboard
+// ==========================================
+
+window.addEventListener("DOMContentLoaded", async () => {
+
+    await loadDashboard();
+
+    await loadOrders();
+
+    await loadVendorQR();
+
+});
+

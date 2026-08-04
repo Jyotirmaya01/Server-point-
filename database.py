@@ -787,6 +787,63 @@ def get_vendor_orders(vendor_id):
     return [dict(job) for job in jobs]
 
 
- # ==========================================
-# Vendor QR
 # ==========================================
+# Vendor Queue
+# ==========================================
+
+def get_vendor_queue(vendor_id):
+
+    connection = get_connection()
+
+    cursor = connection.cursor()
+
+    # Current Printing
+    cursor.execute("""
+        SELECT queue_number
+        FROM print_jobs
+        WHERE vendor_id=?
+        AND printer_status='Printing'
+        LIMIT 1
+    """, (vendor_id,))
+
+    row = cursor.fetchone()
+
+    current_queue = row["queue_number"] if row else "--"
+
+    # Next Waiting
+    cursor.execute("""
+        SELECT queue_number
+        FROM print_jobs
+        WHERE vendor_id=?
+        AND printer_status='Waiting'
+        ORDER BY queue_number
+        LIMIT 1
+    """, (vendor_id,))
+
+    row = cursor.fetchone()
+
+    next_queue = row["queue_number"] if row else "--"
+
+    # Waiting Jobs
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM print_jobs
+        WHERE vendor_id=?
+        AND printer_status='Waiting'
+    """, (vendor_id,))
+
+    waiting_jobs = cursor.fetchone()[0]
+
+    connection.close()
+
+    return {
+
+        "current_queue": current_queue,
+
+        "next_queue": next_queue,
+
+        "waiting_jobs": waiting_jobs,
+
+        "estimated_wait": waiting_jobs * 2
+
+    }
