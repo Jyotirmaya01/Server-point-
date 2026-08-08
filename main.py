@@ -488,6 +488,13 @@ async def upload_file(
     paper_size: str = Form("A4"),
     page_range: str = Form("All")
 ):
+  
+  vendor = get_vendor_by_id(vendor_id)
+  if vendor is None:
+     raise HTTPException(
+       status_code=404,
+       detail="Vendor not found."
+     )
 
 # ==========================================
 # STEP 10.1 — Subscription Protection
