@@ -489,18 +489,6 @@ async def upload_file(
     page_range: str = Form("All")
 ):
 
-    # ==========================================
-    # STEP 6 — Vendor Maintenance Protection
-    # ==========================================
-
-    vendor = get_vendor_by_id(vendor_id)
-
-if vendor is None:
-    raise HTTPException(
-        status_code=404,
-        detail="Vendor not found."
-    )
-
 # ==========================================
 # STEP 10.1 — Subscription Protection
 # ==========================================
@@ -515,11 +503,11 @@ maintenance = get_vendor_maintenance(
     vendor_id
 )
 
-    if maintenance:
-        raise HTTPException(
-            status_code=503,
-            detail="This shop is currently under maintenance. Please try again later."
-        )
+if maintenance:
+    raise HTTPException(
+        status_code=503,
+        detail="This shop is currently under maintenance. Please try again later."
+    )
   
     # ------------------------------
     # Validate Copies
