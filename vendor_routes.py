@@ -5,6 +5,7 @@ from vendor_database import (
     register_vendor,
     verify_vendor,
     get_vendor_by_id,
+    get_vendor_settings,
     hash_password,
 )
 
@@ -13,7 +14,7 @@ import time
 import hmac
 import hashlib
 import base64
-
+from datetime import datetime
 
 # ==========================================
 # Vendor Router
@@ -140,7 +141,10 @@ def get_authenticated_vendor(
                 detail="Vendor account not found."
             )
 
-        return vendor
+  # Step 10.1 — Subscription protection
+check_vendor_subscription(vendor_id)
+
+return vendor
 
     except HTTPException:
         raise
@@ -152,6 +156,72 @@ def get_authenticated_vendor(
             detail="Invalid authentication token."
         )
 
+
+# ==========================================
+# Subscription Protection
+# ==========================================
+
+def check_vendor_subscription(vendor_id: str):
+
+    settings = get_vendor_settings(vendor_id)
+
+    if settings is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor settings not found."
+        )
+
+    status = str(
+        settings.get("subscription_status", "Active")
+    ).strip().lower()
+
+    expiry = str(
+        settings.get("subscription_expiry", "")
+    ).strip()
+
+    # --------------------------------------
+    # Super Admin can suspend a vendor
+    # --------------------------------------
+
+    if status in ["suspended", "cancelled", "expired", "inactive"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Your ServePrint subscription is inactive. Please contact the administrator."
+        )
+
+    # --------------------------------------
+    # Check subscription expiry
+    # --------------------------------------
+
+    if expiry:
+
+        try:
+
+            expiry_date = datetime.fromisoformat(
+                expiry.replace("Z", "+00:00")
+            )
+
+            # Handle timezone-aware dates safely
+            if expiry_date.tzinfo is not None:
+                now = datetime.now(expiry_date.tzinfo)
+            else:
+                now = datetime.now()
+
+            if now > expiry_date:
+
+                raise HTTPException(
+                    status_code=403,
+                    detail="Your ServePrint subscription has expired. Please renew your subscription."
+                )
+
+        except ValueError:
+
+            raise HTTPException(
+                status_code=500,
+                detail="Invalid subscription expiry date."
+            )
+
+    return settings
 
 # ==========================================
 # Vendor Signup
