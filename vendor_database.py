@@ -34,7 +34,7 @@ def get_connection():
 def initialize_vendor_database():
     connection = get_connection()
     cursor = connection.cursor()
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vendors (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,57 +55,37 @@ def initialize_vendor_database():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS vendor_settings (
+            vendor_id TEXT PRIMARY KEY,
+            maintenance INTEGER DEFAULT 0,
+            accept_orders INTEGER DEFAULT 1,
+            razorpay_key TEXT DEFAULT '',
+            razorpay_secret TEXT DEFAULT '',
+            google_sheet_id TEXT DEFAULT '',
+            service_email TEXT DEFAULT '',
+            smtp_host TEXT DEFAULT '',
+            smtp_port INTEGER DEFAULT 587,
+            smtp_email TEXT DEFAULT '',
+            smtp_password TEXT DEFAULT '',
+            subscription_plan TEXT DEFAULT 'Trial',
+            subscription_status TEXT DEFAULT 'Active',
+            subscription_expiry TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-# ==========================================
-# Vendor Settings Table
-# ==========================================
+            FOREIGN KEY (vendor_id)
+                REFERENCES vendors(vendor_id)
+        )
+    """)
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS vendor_settings (
-
-    vendor_id TEXT PRIMARY KEY,
-
-    maintenance INTEGER DEFAULT 0,
-
-    accept_orders INTEGER DEFAULT 1,
-
-    razorpay_key TEXT DEFAULT '',
-
-    razorpay_secret TEXT DEFAULT '',
-
-    google_sheet_id TEXT DEFAULT '',
-
-    service_email TEXT DEFAULT '',
-
-    smtp_host TEXT DEFAULT '',
-
-    smtp_port INTEGER DEFAULT 587,
-
-    smtp_email TEXT DEFAULT '',
-
-    smtp_password TEXT DEFAULT '',
-
-    subscription_plan TEXT DEFAULT 'Trial',
-
-    subscription_status TEXT DEFAULT 'Active',
-
-    subscription_expiry TEXT DEFAULT '',
-
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    FOREIGN KEY (vendor_id)
-        REFERENCES vendors(vendor_id)
-
-)
-""")
-
-connection.commit()
+    connection.commit()
     connection.close()
+
+     
 
 # ==========================================
 # Register Vendor
 # ==========================================
-
 def register_vendor(
     shop_name,
     owner_name,
@@ -116,6 +96,7 @@ def register_vendor(
 ):
     connection = get_connection()
     cursor = connection.cursor()
+
     vendor_id = generate_vendor_id()
 
     cursor.execute("""
@@ -139,24 +120,20 @@ def register_vendor(
         address
     ))
 
-  cursor.execute("""
-INSERT INTO vendor_settings (
+    cursor.execute("""
+        INSERT INTO vendor_settings (
+            vendor_id
+        )
+        VALUES (?)
+    """, (
+        vendor_id,
+    ))
 
-    vendor_id
-
-)
-VALUES (?)
-
-""", (
-
-    vendor_id,
-
-))
-
-connection.commit()
+    connection.commit()
     connection.close()
 
-return vendor_id
+    return vendor_id
+    
 
 # ==========================================
 # Get Vendor Settings
