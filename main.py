@@ -491,9 +491,7 @@ async def upload_file(
 
 # ==========================================
 # STEP 10.1 — Subscription Protection
-# ==========================================
-
-check_vendor_subscription(vendor_id)
+# =========================================
 
 # ==========================================
 # Maintenance Protection
