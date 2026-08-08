@@ -26,7 +26,8 @@ from fastapi import (
 )
 from vendor_routes import (
     router as vendor_router,
-    get_authenticated_vendor
+    get_authenticated_vendor,
+    check_vendor_subscription 
 )
 
 
@@ -494,15 +495,25 @@ async def upload_file(
 
     vendor = get_vendor_by_id(vendor_id)
 
-    if vendor is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Vendor not found."
-        )
-
-    maintenance = get_vendor_maintenance(
-        vendor_id
+if vendor is None:
+    raise HTTPException(
+        status_code=404,
+        detail="Vendor not found."
     )
+
+# ==========================================
+# STEP 10.1 — Subscription Protection
+# ==========================================
+
+check_vendor_subscription(vendor_id)
+
+# ==========================================
+# Maintenance Protection
+# ==========================================
+
+maintenance = get_vendor_maintenance(
+    vendor_id
+)
 
     if maintenance:
         raise HTTPException(
