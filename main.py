@@ -26,8 +26,7 @@ from fastapi import (
 )
 from vendor_routes import (
     router as vendor_router,
-    get_authenticated_vendor,
-    check_vendor_subscription 
+    get_authenticated_vendor
 )
 
 
@@ -478,6 +477,9 @@ def status():
 # ==========================================
 # Upload API
 # ==========================================
+# ==========================================
+# Upload API
+# ==========================================
 
 @app.post("/upload")
 async def upload_file(
@@ -488,35 +490,36 @@ async def upload_file(
     paper_size: str = Form("A4"),
     page_range: str = Form("All")
 ):
-  
-  vendor = get_vendor_by_id(vendor_id)
-  if vendor is None:
-     raise HTTPException(
-       status_code=404,
-       detail="Vendor not found."
-     )
 
-# ==========================================
-# STEP 10.1 — Subscription Protection
-# =========================================
+    # --------------------------------------
+    # Validate Vendor
+    # --------------------------------------
 
-# ==========================================
-# Maintenance Protection
-# ==========================================
+    vendor = get_vendor_by_id(vendor_id)
 
-maintenance = get_vendor_maintenance(
-    vendor_id
-)
+    if vendor is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found."
+        )
 
-if maintenance:
-    raise HTTPException(
-        status_code=503,
-        detail="This shop is currently under maintenance. Please try again later."
+    # --------------------------------------
+    # Maintenance Protection
+    # --------------------------------------
+
+    maintenance = get_vendor_maintenance(
+        vendor_id
     )
-  
-    # ------------------------------
+
+    if maintenance:
+        raise HTTPException(
+            status_code=503,
+            detail="This shop is currently under maintenance. Please try again later."
+        )
+
+    # --------------------------------------
     # Validate Copies
-    # ------------------------------
+    # --------------------------------------
 
     if copies < 1:
         raise HTTPException(
@@ -530,9 +533,9 @@ if maintenance:
             detail="Maximum 100 copies allowed."
         )
 
-    # ------------------------------
+    # --------------------------------------
     # Validate Page Range
-    # ------------------------------
+    # --------------------------------------
 
     page_range = page_range.strip()
 
@@ -543,6 +546,7 @@ if maintenance:
         )
 
     if page_range.lower() != "all":
+
         pattern = r"^[0-9,\-\s]+$"
 
         if not re.match(pattern, page_range):
@@ -551,9 +555,9 @@ if maintenance:
                 detail="Invalid page range."
             )
 
-    # ------------------------------
+    # --------------------------------------
     # Validate Extension
-    # ------------------------------
+    # --------------------------------------
 
     extension = Path(file.filename).suffix.lower()
 
@@ -563,19 +567,22 @@ if maintenance:
             detail="Unsupported file type."
         )
 
-    # ------------------------------
+    # --------------------------------------
     # Block Videos
-    # ------------------------------
+    # --------------------------------------
 
-    if file.content_type and file.content_type.startswith("video/"):
+    if (
+        file.content_type
+        and file.content_type.startswith("video/")
+    ):
         raise HTTPException(
             status_code=400,
             detail="Video files are not allowed."
         )
 
-    # ------------------------------
+    # --------------------------------------
     # Validate MIME Type
-    # ------------------------------
+    # --------------------------------------
 
     if file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
@@ -583,9 +590,9 @@ if maintenance:
             detail=f"Unsupported MIME type: {file.content_type}"
         )
 
-    # ------------------------------
+    # --------------------------------------
     # Validate Print Type
-    # ------------------------------
+    # --------------------------------------
 
     if print_type not in ["bw", "color"]:
         raise HTTPException(
@@ -593,47 +600,58 @@ if maintenance:
             detail="Invalid print type."
         )
 
-    # ------------------------------
+    # --------------------------------------
     # Generate Job
-    # ------------------------------
+    # --------------------------------------
 
     job_id = str(uuid.uuid4())
+
     filename = f"{job_id}{extension}"
+
     filepath = UPLOAD_FOLDER / filename
 
-    # ------------------------------
+    # --------------------------------------
     # Save File
-    # ------------------------------
+    # --------------------------------------
 
     with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        shutil.copyfileobj(
+            file.file,
+            buffer
+        )
 
     file_size = filepath.stat().st_size
 
-    # ------------------------------
+    # --------------------------------------
     # Validate File Size
-    # ------------------------------
+    # --------------------------------------
 
     if file_size > MAX_FILE_SIZE:
+
         filepath.unlink()
+
         raise HTTPException(
             status_code=400,
             detail="Maximum file size is 20 MB."
         )
 
-    # ------------------------------
+    # --------------------------------------
     # Count Pages
-    # Runs in a threadpool so it never blocks other requests
-    # while parsing a large PDF/PPTX.
-    # ------------------------------
+    # Runs in threadpool
+    # --------------------------------------
 
-    total_pages = await run_in_threadpool(count_pages, filepath)
+    total_pages = await run_in_threadpool(
+        count_pages,
+        filepath
+    )
 
-    logger.info(f"Detected Pages: {total_pages}")
+    logger.info(
+        f"Detected Pages: {total_pages}"
+    )
 
-    # ------------------------------
+    # --------------------------------------
     # Queue
-    # ------------------------------
+    # --------------------------------------
 
     # Job has not been paid yet,
     # so it is not in the queue.
@@ -641,9 +659,9 @@ if maintenance:
     queue_number = 0
     waiting_time = 0
 
-    # ------------------------------
+    # --------------------------------------
     # Calculate Price
-    # ------------------------------
+    # --------------------------------------
 
     total_amount = calculate_price(
         pages=total_pages,
@@ -651,9 +669,9 @@ if maintenance:
         print_type=print_type
     )
 
-    # ------------------------------
+    # --------------------------------------
     # Save Database
-    # ------------------------------
+    # --------------------------------------
 
     save_print_job(
         vendor_id=vendor_id,
@@ -666,6 +684,10 @@ if maintenance:
         total_amount=total_amount
     )
 
+    # --------------------------------------
+    # Update Job Details
+    # --------------------------------------
+
     update_job_details(
         job_id,
         total_pages,
@@ -676,11 +698,15 @@ if maintenance:
         paper_size
     )
 
+    # --------------------------------------
+    # Payment Pending
+    # --------------------------------------
+
     mark_payment_pending(job_id)
 
-    # ------------------------------
+    # --------------------------------------
     # Response
-    # ------------------------------
+    # --------------------------------------
 
     return {
         "success": True,
@@ -692,7 +718,7 @@ if maintenance:
         "queue_number": 0,
         "total_pages": total_pages,
         "total_amount": total_amount,
-        "estimated_wait_time": 0,
+        "estimated_wait_time": waiting_time,
         "copies": copies,
         "print_type": print_type,
         "paper_size": paper_size,
@@ -700,7 +726,6 @@ if maintenance:
         "payment_status": "Pending",
         "printer_status": "Pending Payment"
     }
-
 
 # ==========================================
 # Create Print Job API
