@@ -21,10 +21,14 @@ from fastapi import (
     File,
     Form,
     HTTPException,
-    Request
+    Request,
+    Header
 )
-from vendor_routes import router as vendor_router
-from vendor_database import get_vendor_by_id
+from vendor_routes import (
+    router as vendor_router,
+    get_authenticated_vendor
+)
+
 
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,6 +39,13 @@ from pptx import Presentation
 from docx import Document
 from docx.oxml.ns import qn
 import openpyxl
+from vendor_database import (
+    get_vendor_by_id,
+    get_vendor_settings,
+    update_vendor_settings,
+    update_vendor_maintenance,
+    get_vendor_maintenance,
+)
 
 from database import (
     initialize_database,
@@ -476,6 +487,29 @@ async def upload_file(
     paper_size: str = Form("A4"),
     page_range: str = Form("All")
 ):
+
+    # ==========================================
+    # STEP 6 — Vendor Maintenance Protection
+    # ==========================================
+
+    vendor = get_vendor_by_id(vendor_id)
+
+    if vendor is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found."
+        )
+
+    maintenance = get_vendor_maintenance(
+        vendor_id
+    )
+
+    if maintenance:
+        raise HTTPException(
+            status_code=503,
+            detail="This shop is currently under maintenance. Please try again later."
+        )
+  
     # ------------------------------
     # Validate Copies
     # ------------------------------
@@ -796,31 +830,92 @@ def fetch_all_jobs():
 # ==========================================
 
 @app.put("/jobs/{job_id}/payment/{status}")
-def payment_status(job_id: str, status: str):
-    update_payment_status(job_id, status)
+def payment_status(
+    job_id: str,
+    status: str,
+    authorization: str | None = Header(default=None)
+):
+
+    vendor = get_authenticated_vendor(
+        authorization
+    )
+
+    job = get_print_job(job_id)
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+    if job["vendor_id"] != vendor["vendor_id"]:
+
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to modify this job."
+        )
+
+    update_payment_status(
+        job_id,
+        status
+    )
 
     return {
-        "success": True,
-        "job_id": job_id,
-        "payment_status": status
-    }
 
+        "success": True,
+
+        "job_id": job_id,
+
+        "payment_status": status
+
+    }
 
 # ==========================================
 # Update Printer Status
 # ==========================================
 
 @app.put("/jobs/{job_id}/printer/{status}")
-def printer_status(job_id: str, status: str):
-    update_printer_status(job_id, status)
+def printer_status(
+    job_id: str,
+    status: str,
+    authorization: str | None = Header(default=None)
+):
+
+    vendor = get_authenticated_vendor(
+        authorization
+    )
+
+    job = get_print_job(job_id)
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+    if job["vendor_id"] != vendor["vendor_id"]:
+
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to modify this job."
+        )
+
+    update_printer_status(
+        job_id,
+        status
+    )
 
     return {
+
         "success": True,
+
         "job_id": job_id,
+
         "printer_status": status
+
     }
-
-
 # ==========================================
 # Verify Payment
 # ==========================================
@@ -857,31 +952,84 @@ def verify_payment(job_id: str, payment_id: str):
 # ==========================================
 
 @app.post("/jobs/{job_id}/start")
-def start_job(job_id: str):
+def start_job(
+    job_id: str,
+    authorization: str | None = Header(default=None)
+):
+
+    vendor = get_authenticated_vendor(
+        authorization
+    )
+
+    job = get_print_job(job_id)
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+    if job["vendor_id"] != vendor["vendor_id"]:
+
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to start this job."
+        )
+
     start_printing(job_id)
 
     return {
-        "success": True,
-        "job_id": job_id,
-        "printer_status": "Printing"
-    }
 
+        "success": True,
+
+        "job_id": job_id,
+
+        "printer_status": "Printing"
+
+    }
 
 # ==========================================
 # Complete Printing
 # ==========================================
 
 @app.post("/jobs/{job_id}/complete")
-def complete_job(job_id: str):
+def complete_job(
+    job_id: str,
+    authorization: str | None = Header(default=None)
+):
+
+    vendor = get_authenticated_vendor(
+        authorization
+    )
+
+    job = get_print_job(job_id)
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+    if job["vendor_id"] != vendor["vendor_id"]:
+
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to complete this job."
+        )
+
     complete_printing(job_id)
 
     return {
+
         "success": True,
+
         "job_id": job_id,
+
         "printer_status": "Completed"
+
     }
-
-
 # ==========================================
 # Vendor Dashboard API
 # ==========================================
@@ -939,6 +1087,154 @@ def vendor_qr(vendor_id: str):
 
         "url": f"{frontend_url}/?vendor_id={vendor['vendor_id']}"
 
+    }
+
+
+# ==========================================
+# Vendor Settings Model
+# ==========================================
+
+class VendorSettingsUpdate(BaseModel):
+
+    shop_name: str
+
+    owner_name: str
+
+    phone: str
+
+    address: str
+
+    maintenance: bool
+
+    accept_orders: bool
+
+    razorpay_key: str = ""
+
+    razorpay_secret: str = ""
+
+    google_sheet_id: str = ""
+
+    service_email: str = ""
+
+    smtp_host: str = ""
+
+    smtp_port: int = 587
+
+    smtp_email: str = ""
+
+    smtp_password: str = ""
+# ==========================================
+# Vendor Settings API
+# ==========================================
+
+@app.get("/vendor/{vendor_id}/settings")
+def vendor_settings(vendor_id: str):
+
+    settings = get_vendor_settings(vendor_id)
+
+    if settings is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor settings not found."
+        )
+
+    return settings
+
+# ==========================================
+# Update Vendor Settings API
+# ==========================================
+
+@app.put("/vendor/{vendor_id}/settings")
+def save_vendor_settings(
+
+    vendor_id: str,
+
+    data: VendorSettingsUpdate
+
+):
+
+    update_vendor_settings(
+
+        vendor_id,
+
+        data
+
+    )
+
+    return {
+
+        "success": True,
+
+        "message": "Settings updated successfully."
+
+    }
+
+# ==========================================
+# Vendor Maintenance API
+# ==========================================
+
+@app.post("/vendor/{vendor_id}/maintenance")
+def set_vendor_maintenance(
+    vendor_id: str,
+    enabled: bool
+):
+
+    # Make sure vendor exists
+    vendor = get_vendor_by_id(vendor_id)
+
+    if vendor is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found."
+        )
+
+    success = update_vendor_maintenance(
+        vendor_id,
+        enabled
+    )
+
+    if not success:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor settings not found."
+        )
+
+    return {
+        "success": True,
+        "vendor_id": vendor_id,
+        "maintenance": enabled
+    }
+
+# ==========================================
+# Public Vendor Status API
+# ==========================================
+
+@app.get("/vendor/{vendor_id}/status")
+def get_vendor_status(vendor_id: str):
+
+    vendor = get_vendor_by_id(vendor_id)
+
+    if vendor is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found."
+        )
+
+    maintenance = get_vendor_maintenance(
+        vendor_id
+    )
+
+    if maintenance is None:
+        maintenance = False
+
+    return {
+        "vendor_id": vendor_id,
+        "maintenance": maintenance,
+        "accept_orders": True
     }
 # ==========================================
 # Global Exception Handler

@@ -1,149 +1,294 @@
-const printerStatus = document.getElementById("printerStatus");
-const maintenanceReason = document.getElementById("maintenanceReason");
-const availableTime = document.getElementById("availableTime");
+// =====================================================
+// ServePrint Maintenance Page
+// STEP 8 — Vendor-Aware Maintenance
+// =====================================================
 
-const refreshBtn = document.getElementById("refreshBtn");
-const homeBtn = document.getElementById("homeBtn");
+const API_URL =
+    "https://server-point-xiir.onrender.com";
 
-let maintenanceData = {};
 
-loadMaintenance();
+// =====================================================
+// DOM ELEMENTS
+// =====================================================
 
-showMaintenance();
+const printerStatus =
+    document.getElementById("printerStatus");
 
-function loadMaintenance() {
+const maintenanceReason =
+    document.getElementById("maintenanceReason");
 
-    const saved = localStorage.getItem("serveprint_maintenance");
+const availableTime =
+    document.getElementById("availableTime");
 
-    if (saved) {
+const refreshBtn =
+    document.getElementById("refreshBtn");
 
-        maintenanceData = JSON.parse(saved);
+const homeBtn =
+    document.getElementById("homeBtn");
+
+
+// =====================================================
+// GET VENDOR ID
+// =====================================================
+
+const vendorId =
+    new URLSearchParams(
+        window.location.search
+    ).get("vendor_id");
+
+
+// =====================================================
+// INITIAL CHECK
+// =====================================================
+
+checkVendorStatus();
+
+
+// =====================================================
+// CHECK VENDOR STATUS
+// =====================================================
+
+async function checkVendorStatus() {
+
+    if (!vendorId) {
+
+        console.error(
+            "Vendor ID missing from maintenance URL."
+        );
+
+        if (printerStatus) {
+            printerStatus.textContent =
+                "Unavailable";
+        }
+
+        if (maintenanceReason) {
+            maintenanceReason.textContent =
+                "Vendor information is missing.";
+        }
+
+        return;
+    }
+
+
+    if (refreshBtn) {
+
+        refreshBtn.disabled = true;
+
+        refreshBtn.textContent =
+            "Checking...";
+
+    }
+
+
+    try {
+
+        const response = await fetch(
+
+            API_URL +
+            "/vendor/" +
+            encodeURIComponent(vendorId) +
+            "/status",
+
+            {
+                method: "GET",
+                cache: "no-store"
+            }
+
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Unable to check vendor status."
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "Vendor status:",
+            data
+        );
+
+
+        // =================================================
+        // VENDOR IS ONLINE
+        // =================================================
+
+        if (!Boolean(data.maintenance)) {
+
+            console.log(
+                "Vendor is back online."
+            );
+
+
+            /*
+             * Send customer back to the
+             * vendor-specific customer page.
+             */
+
+            window.location.replace(
+
+                "index.html?vendor_id=" +
+                encodeURIComponent(vendorId)
+
+            );
+
+            return;
+        }
+
+
+        // =================================================
+        // VENDOR IS STILL IN MAINTENANCE
+        // =================================================
+
+        if (printerStatus) {
+
+            printerStatus.textContent =
+                "Offline";
+
+        }
+
+
+        if (maintenanceReason) {
+
+            maintenanceReason.textContent =
+                "Maintenance in Progress";
+
+        }
+
+
+        if (availableTime) {
+
+            availableTime.textContent =
+                getEstimatedTime();
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Maintenance status error:",
+            error
+        );
+
+
+        if (printerStatus) {
+
+            printerStatus.textContent =
+                "Offline";
+
+        }
+
+
+        if (maintenanceReason) {
+
+            maintenanceReason.textContent =
+                "Unable to verify current status.";
+
+        }
+
+    } finally {
+
+        if (refreshBtn) {
+
+            refreshBtn.disabled = false;
+
+            refreshBtn.textContent =
+                "Check Again";
+
+        }
 
     }
 
 }
 
-function showMaintenance() {
 
-    if (printerStatus) {
-
-        printerStatus.textContent =
-            maintenanceData.status || "Offline";
-
-    }
-
-    if (maintenanceReason) {
-
-        maintenanceReason.textContent =
-            maintenanceData.reason || "Maintenance in Progress";
-
-    }
-
-    if (availableTime) {
-
-        availableTime.textContent =
-            maintenanceData.time || getEstimatedTime();
-
-    }
-
-}
+// =====================================================
+// ESTIMATED TIME
+// =====================================================
 
 function getEstimatedTime() {
 
-    const now = new Date();
+    const now =
+        new Date();
 
-    now.setMinutes(now.getMinutes() + 15);
+    now.setMinutes(
+        now.getMinutes() + 15
+    );
 
     return now.toLocaleTimeString();
 
 }
 
-console.log(maintenanceData);
 
-console.log("Maintenance Page Loaded");
+// =====================================================
+// CHECK AGAIN BUTTON
+// =====================================================
 
-// ===============================
-// MAINTENANCE.JS - PART 1B
-// ===============================
-
-// Check Again Button
 if (refreshBtn) {
 
-    refreshBtn.addEventListener("click", function () {
+    refreshBtn.addEventListener(
+        "click",
+        function () {
 
-        checkPrinterStatus();
+            checkVendorStatus();
 
-    });
-
-}
-
-// Return Home Button
-if (homeBtn) {
-
-    homeBtn.addEventListener("click", function () {
-
-        returnHome();
-
-    });
-
-}
-
-// Check Printer Status
-function checkPrinterStatus() {
-
-    console.log("Checking printer status...");
-
-    refreshBtn.disabled = true;
-    refreshBtn.textContent = "Checking...";
-
-    setTimeout(function () {
-
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = "Check Again";
-
-        showMaintenance();
-
-        console.log("Printer is still unavailable.");
-
-    }, 2000);
-
-}
-
-// Return to Home
-function returnHome() {
-
-    localStorage.removeItem("serveprint_maintenance");
-
-    window.location.href = "index.html";
-
-}
-
-// Save Maintenance Information
-function saveMaintenance(status, reason, time) {
-
-    const maintenance = {
-
-        status: status,
-
-        reason: reason,
-
-        time: time
-
-    };
-
-    localStorage.setItem(
-        "serveprint_maintenance",
-        JSON.stringify(maintenance)
+        }
     );
 
 }
 
-// Restore page when coming back from browser cache
-window.addEventListener("pageshow", function () {
 
-    showMaintenance();
+// =====================================================
+// RETURN HOME
+// =====================================================
 
-});
+if (homeBtn) {
 
-// Developer Log
-console.log("Maintenance page ready.");
+    homeBtn.addEventListener(
+        "click",
+        function () {
+
+            if (vendorId) {
+
+                window.location.href =
+                    "index.html?vendor_id=" +
+                    encodeURIComponent(vendorId);
+
+            } else {
+
+                window.location.href =
+                    "index.html";
+
+            }
+
+        }
+    );
+
+}
+
+
+// =====================================================
+// BROWSER BACK/FORWARD CACHE
+// =====================================================
+
+window.addEventListener(
+    "pageshow",
+    function () {
+
+        checkVendorStatus();
+
+    }
+);
+
+
+console.log(
+    "ServePrint Maintenance Page Ready."
+);

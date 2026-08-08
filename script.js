@@ -84,7 +84,85 @@ function simulatePayment() {
 
 }
 
-init();
+// ==========================================
+// STEP 7 - VENDOR MAINTENANCE CHECK
+// ==========================================
+
+const CURRENT_VENDOR_ID =
+    new URLSearchParams(window.location.search).get("vendor_id");
+
+async function checkVendorMaintenance() {
+
+    // If there is no vendor_id, keep normal homepage working
+    if (!CURRENT_VENDOR_ID) {
+        console.log("No vendor_id. Normal homepage mode.");
+        return true;
+    }
+
+    // Save vendor ID for this customer session
+    sessionStorage.setItem(
+        "serveprint_vendor_id",
+        CURRENT_VENDOR_ID
+    );
+
+    try {
+
+        const response = await fetch(
+            API_URL +
+            "/vendor/" +
+            encodeURIComponent(CURRENT_VENDOR_ID) +
+            "/status",
+            {
+                method: "GET",
+                cache: "no-store"
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error("Unable to check vendor status.");
+        }
+
+        const data = await response.json();
+
+        console.log("Vendor status:", data);
+
+        // ==========================================
+        // VENDOR IS IN MAINTENANCE
+        // ==========================================
+
+        if (Boolean(data.maintenance)) {
+
+            window.location.replace(
+                "maintenance.html?vendor_id=" +
+                encodeURIComponent(CURRENT_VENDOR_ID)
+            );
+
+            return false;
+        }
+
+        // Vendor is online
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Vendor maintenance check failed:",
+            error
+        );
+
+        // Don't incorrectly block customers
+        // if status API temporarily fails.
+        return true;
+    }
+}
+
+checkVendorMaintenance().then(function(canContinue) {
+
+    if (canContinue) {
+        init();
+    }
+
+});
 
 function init() {
 
@@ -855,7 +933,6 @@ async function uploadDocument() {
     const vendorId = new URLSearchParams(window.location.search).get("vendor_id");
 
   console.log("Vendor ID:", vendorId);
-alert("Vendor ID = " + vendorId);
     
     if (!vendorId) {
         throw new Error("Vendor ID not found.");
