@@ -189,7 +189,7 @@ def vendor_signup(data: VendorSignup):
         shop_name=data.shop_name,
         owner_name=data.owner_name,
         email=data.email,
-        password_hash=data.password,
+        password_hash=hash_password(data.password),
         phone=data.phone,
         address=data.address
 
