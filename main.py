@@ -1171,7 +1171,6 @@ def get_vendor_status(vendor_id: str):
     vendor = get_vendor_by_id(vendor_id)
 
     if vendor is None:
-
         raise HTTPException(
             status_code=404,
             detail="Vendor not found."
@@ -1184,12 +1183,28 @@ def get_vendor_status(vendor_id: str):
     if maintenance is None:
         maintenance = False
 
+    settings = get_vendor_settings(
+        vendor_id
+    )
+
+    if settings is None:
+        accept_orders = True
+    else:
+        accept_orders = bool(
+            settings.get(
+                "accept_orders",
+                True
+            )
+        )
+
     return {
         "vendor_id": vendor_id,
+        "shop_name": vendor["shop_name"],
         "maintenance": maintenance,
-        "accept_orders": True
+        "accept_orders": accept_orders,
+        "active": True
     }
-# ==========================================
+#==========================================
 # Global Exception Handler
 # ==========================================
 

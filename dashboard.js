@@ -1,20 +1,21 @@
-/* =====================================================
-   ServePrint Vendor Dashboard
+/* =========================================================
+   SERVEPRINT VENDOR DASHBOARD
    dashboard.js
-   STEP 5 — CLEAN VERSION
-===================================================== */
+   CLEAN VERSION
+   ========================================================= */
 
 
-/* =====================================================
+/* =========================================================
    1. BACKEND
-===================================================== */
+   ========================================================= */
 
-const API_URL = "https://server-point-xiir.onrender.com";
+const API_URL =
+    "https://server-point-xiir.onrender.com";
 
 
-/* =====================================================
+/* =========================================================
    2. VENDOR SESSION
-===================================================== */
+   ========================================================= */
 
 const vendorSessionRaw =
     localStorage.getItem("serveprint_vendor");
@@ -22,763 +23,920 @@ const vendorSessionRaw =
 let vendorSession = null;
 
 try {
-    vendorSession = vendorSessionRaw
-        ? JSON.parse(vendorSessionRaw)
-        : null;
+
+    vendorSession =
+        vendorSessionRaw
+            ? JSON.parse(vendorSessionRaw)
+            : null;
+
 } catch (error) {
-    console.error("Invalid vendor session:", error);
+
+    console.error(
+        "Invalid vendor session:",
+        error
+    );
+
     vendorSession = null;
 }
 
 
-/* =====================================================
+/* =========================================================
    3. PROTECT DASHBOARD
-===================================================== */
+   ========================================================= */
 
-if (!vendorSession || !vendorSession.vendor_id) {
+if (
+    !vendorSession ||
+    !vendorSession.vendor_id
+) {
 
-    window.location.href = "vendor_login.html";
+    window.location.href =
+        "vendor_login.html";
 
-    throw new Error("Vendor session not found.");
+    throw new Error(
+        "Vendor session not found."
+    );
 }
 
 
-/* =====================================================
+/* =========================================================
    4. VENDOR ID
-===================================================== */
+   ========================================================= */
 
-const vendorId = vendorSession.vendor_id;
+const vendorId =
+    vendorSession.vendor_id;
 
 
-/* =====================================================
+/* =========================================================
    5. DOM ELEMENTS
-===================================================== */
+   ========================================================= */
+
+
+/* ---------- Header ---------- */
 
 const vendorShopName =
-    document.getElementById("vendorShopName");
+    document.getElementById(
+        "vendorShopName"
+    );
 
 const vendorOwnerName =
-    document.getElementById("vendorOwnerName");
+    document.getElementById(
+        "vendorOwnerName"
+    );
 
 const logoutBtn =
-    document.getElementById("logoutBtn");
+    document.getElementById(
+        "logoutBtn"
+    );
 
 const refreshBtn =
-    document.getElementById("refreshBtn");
+    document.getElementById(
+        "refreshBtn"
+    );
 
 const loadingOverlay =
-    document.getElementById("loadingOverlay");
+    document.getElementById(
+        "loadingOverlay"
+    );
 
 
-/* =====================================================
-   Dashboard Cards
-===================================================== */
+/* ---------- Dashboard Cards ---------- */
 
 const todayRevenue =
-    document.getElementById("todayRevenue");
+    document.getElementById(
+        "todayRevenue"
+    );
 
 const todayOrders =
-    document.getElementById("todayOrders");
+    document.getElementById(
+        "todayOrders"
+    );
 
 const queueCount =
-    document.getElementById("queueCount");
+    document.getElementById(
+        "queueCount"
+    );
 
 const printingCount =
-    document.getElementById("printingCount");
+    document.getElementById(
+        "printingCount"
+    );
 
 const completedOrders =
-    document.getElementById("completedOrders");
+    document.getElementById(
+        "completedOrders"
+    );
 
 const averageWait =
-    document.getElementById("averageWait");
+    document.getElementById(
+        "averageWait"
+    );
 
 const totalPages =
-    document.getElementById("totalPages");
+    document.getElementById(
+        "totalPages"
+    );
 
 const shopRating =
-    document.getElementById("shopRating");
+    document.getElementById(
+        "shopRating"
+    );
 
 
-/* =====================================================
-   Queue
-===================================================== */
+/* ---------- Queue ---------- */
 
 const currentQueue =
-    document.getElementById("currentQueue");
+    document.getElementById(
+        "currentQueue"
+    );
 
 const nextQueue =
-    document.getElementById("nextQueue");
+    document.getElementById(
+        "nextQueue"
+    );
 
 const waitingJobs =
-    document.getElementById("waitingJobs");
+    document.getElementById(
+        "waitingJobs"
+    );
 
 const estimatedWait =
-    document.getElementById("estimatedWait");
+    document.getElementById(
+        "estimatedWait"
+    );
 
 
-/* =====================================================
-   Orders
-===================================================== */
+/* ---------- Orders ---------- */
 
 const ordersBody =
-    document.getElementById("ordersBody");
+    document.getElementById(
+        "ordersBody"
+    );
 
 
-/* =====================================================
-   Maintenance
-===================================================== */
+/* ---------- Maintenance ---------- */
 
 const maintenanceToggle =
-    document.getElementById("maintenanceToggle");
+    document.getElementById(
+        "maintenanceToggle"
+    );
 
 
-/* =====================================================
-   QR
-===================================================== */
+/* ---------- Accept Orders ---------- */
+
+const ordersToggle =
+    document.getElementById(
+        "ordersToggle"
+    );
+
+
+/* ---------- Printer ---------- */
+
+const printerStatus =
+    document.getElementById(
+        "printerStatus"
+    );
+
+
+/* ---------- QR ---------- */
 
 const vendorQR =
-    document.getElementById("vendorQR");
+    document.getElementById(
+        "vendorQR"
+    );
 
-let vendorQRLink = "";
+const copyQRLink =
+    document.getElementById(
+        "copyQRLink"
+    );
+
+const downloadPNG =
+    document.getElementById(
+        "downloadPNG"
+    );
+
+const downloadSVG =
+    document.getElementById(
+        "downloadSVG"
+    );
+
+const printQR =
+    document.getElementById(
+        "printQR"
+    );
 
 
-/* =====================================================
-   Settings
-===================================================== */
+/* ---------- Settings ---------- */
 
 const shopName =
-    document.getElementById("shopName");
+    document.getElementById(
+        "shopName"
+    );
 
 const ownerName =
-    document.getElementById("ownerName");
+    document.getElementById(
+        "ownerName"
+    );
 
 const shopPhone =
-    document.getElementById("shopPhone");
+    document.getElementById(
+        "shopPhone"
+    );
 
 const shopAddress =
-    document.getElementById("shopAddress");
+    document.getElementById(
+        "shopAddress"
+    );
 
 const razorpayKey =
-    document.getElementById("razorpayKey");
+    document.getElementById(
+        "razorpayKey"
+    );
 
 const razorpaySecret =
-    document.getElementById("razorpaySecret");
+    document.getElementById(
+        "razorpaySecret"
+    );
 
 const sheetId =
-    document.getElementById("sheetId");
+    document.getElementById(
+        "sheetId"
+    );
 
 const serviceEmail =
-    document.getElementById("serviceEmail");
+    document.getElementById(
+        "serviceEmail"
+    );
 
 const smtpHost =
-    document.getElementById("smtpHost");
+    document.getElementById(
+        "smtpHost"
+    );
 
 const smtpPort =
-    document.getElementById("smtpPort");
+    document.getElementById(
+        "smtpPort"
+    );
 
 const smtpEmail =
-    document.getElementById("smtpEmail");
+    document.getElementById(
+        "smtpEmail"
+    );
 
 const smtpPassword =
-    document.getElementById("smtpPassword");
+    document.getElementById(
+        "smtpPassword"
+    );
 
 const saveSettingsBtn =
-    document.getElementById("saveSettings");
+    document.getElementById(
+        "saveSettings"
+    );
 
 
-/* =====================================================
+/* =========================================================
    6. INITIAL UI
-===================================================== */
+   ========================================================= */
 
 if (vendorShopName) {
+
     vendorShopName.textContent =
-        vendorSession.shop_name || "ServePrint Shop";
+        vendorSession.shop_name ||
+        "ServePrint Shop";
 }
+
 
 if (vendorOwnerName) {
+
     vendorOwnerName.textContent =
-        vendorSession.owner_name || "";
+        vendorSession.owner_name ||
+        "";
 }
 
 
-/* =====================================================
+/* =========================================================
    7. LOADER
-===================================================== */
+   ========================================================= */
 
 function showLoader() {
 
     if (loadingOverlay) {
-        loadingOverlay.style.display = "flex";
-    }
 
+        loadingOverlay.style.display =
+            "flex";
+    }
 }
 
 
 function hideLoader() {
 
     if (loadingOverlay) {
-        loadingOverlay.style.display = "none";
-    }
 
+        loadingOverlay.style.display =
+            "none";
+    }
 }
 
 
-/* =====================================================
+/* =========================================================
    8. TOAST
-===================================================== */
+   ========================================================= */
 
-function showToast(message, type = "success") {
+function showToast(
+    message,
+    type = "success"
+) {
 
-    /*
-       Use existing toast system if your HTML/CSS provides one.
-       Otherwise fall back to alert.
-    */
+    if (
+        typeof window.showToast ===
+        "function"
+    ) {
 
-    if (typeof window.showToast === "function") {
+        window.showToast(
+            message,
+            type
+        );
 
-        window.showToast(message, type);
         return;
-
     }
 
-    console.log(`[${type}] ${message}`);
-
-}
-
-
-/* =====================================================
-   9. LOAD DASHBOARD
-===================================================== */
-
-async function loadDashboard() {
-
-    showLoader();
-
-    try {
-
-        await Promise.all([
-            loadDashboardStats(),
-            loadOrders(),
-            loadQueue(),
-            loadVendorSettings(),
-            loadVendorQR(),
-            loadMaintenanceStatus()
-        ]);
-
-    } catch (error) {
-
-        console.error(
-            "Dashboard loading error:",
-            error
-        );
-
-        showToast(
-            "Unable to load dashboard.",
-            "error"
-        );
-
-    } finally {
-
-        hideLoader();
-
-    }
-
-}
-
-
-/* =====================================================
-   10. DASHBOARD STATISTICS
-===================================================== */
-
-async function loadDashboardStats() {
-
-    const response = await fetch(
-        `${API_URL}/vendor/${vendorId}/dashboard`
+    console.log(
+        `[${type}] ${message}`
     );
+}
+
+
+/* =========================================================
+   9. API HELPER
+   ========================================================= */
+
+async function apiRequest(
+    endpoint,
+    options = {}
+) {
+
+    const response =
+        await fetch(
+            `${API_URL}${endpoint}`,
+            {
+                ...options,
+                headers: {
+                    "Content-Type":
+                        "application/json",
+
+                    ...(options.headers || {})
+                }
+            }
+        );
 
     if (!response.ok) {
 
-        throw new Error(
-            "Unable to load dashboard statistics."
-        );
+        let message =
+            `Request failed (${response.status})`;
 
+        try {
+
+            const errorData =
+                await response.json();
+
+            if (errorData.detail) {
+
+                message =
+                    errorData.detail;
+            }
+
+            if (errorData.message) {
+
+                message =
+                    errorData.message;
+            }
+
+        } catch {
+
+            /* Ignore JSON parsing error */
+        }
+
+        throw new Error(message);
     }
 
-    const data = await response.json();
+    return response;
+}
+
+
+/* =========================================================
+   10. DASHBOARD STATISTICS
+   ========================================================= */
+
+async function loadDashboardStats() {
+
+    const response =
+        await apiRequest(
+            `/vendor/${vendorId}/dashboard`
+        );
+
+    const data =
+        await response.json();
 
 
     if (todayRevenue) {
+
         todayRevenue.textContent =
-            "₹" + (data.today_revenue ?? 0);
+            "₹" +
+            Number(
+                data.today_revenue ?? 0
+            ).toLocaleString("en-IN");
     }
 
+
     if (todayOrders) {
+
         todayOrders.textContent =
             data.today_orders ?? 0;
     }
 
+
     if (queueCount) {
+
         queueCount.textContent =
             data.queue_jobs ?? 0;
     }
 
+
     if (printingCount) {
+
         printingCount.textContent =
             data.printing_jobs ?? 0;
     }
 
+
     if (completedOrders) {
+
         completedOrders.textContent =
             data.completed_jobs ?? 0;
     }
 
+
     if (averageWait) {
+
         averageWait.textContent =
-            (data.average_wait ?? 0) + " min";
+            `${data.average_wait ?? 0} min`;
     }
 
+
     if (totalPages) {
+
         totalPages.textContent =
             data.total_pages ?? 0;
     }
 
-    if (shopRating) {
-        shopRating.textContent =
-            (data.rating ?? 0) + "★";
-    }
 
+    if (shopRating) {
+
+        const rating =
+            data.rating ?? 0;
+
+        shopRating.textContent =
+            `${rating}★`;
+    }
 }
 
 
-/* =====================================================
+/* =========================================================
    11. LOAD ORDERS
-===================================================== */
+   ========================================================= */
 
 async function loadOrders() {
-
-    const response = await fetch(
-        `${API_URL}/vendor/${vendorId}/orders`
-    );
-
-    if (!response.ok) {
-
-        throw new Error(
-            "Unable to load orders."
-        );
-
-    }
-
-    const orders = await response.json();
-
-    renderOrders(orders);
-
-}
-
-
-/* =====================================================
-   12. RENDER ORDERS
-===================================================== */
-
-function renderOrders(orders) {
 
     if (!ordersBody) {
         return;
     }
 
-    ordersBody.innerHTML = "";
+    try {
+
+        const response =
+            await apiRequest(
+                `/vendor/${vendorId}/orders`
+            );
+
+        const orders =
+            await response.json();
 
 
-    if (!orders || orders.length === 0) {
+        ordersBody.innerHTML = "";
 
-        ordersBody.innerHTML = `
-            <tr>
-                <td colspan="8"
-                    style="text-align:center;">
-                    No orders yet.
-                </td>
-            </tr>
-        `;
 
-        return;
+        if (
+            !Array.isArray(orders) ||
+            orders.length === 0
+        ) {
+
+            ordersBody.innerHTML = `
+                <tr>
+                    <td
+                        colspan="8"
+                        style="text-align:center;"
+                    >
+                        No orders yet.
+                    </td>
+                </tr>
+            `;
+
+            return;
+        }
+
+
+        orders.forEach(
+            order => {
+
+                /*
+                 IMPORTANT:
+                 Customer name and phone are
+                 intentionally NOT displayed.
+                */
+
+                const row =
+                    document.createElement(
+                        "tr"
+                    );
+
+
+                row.innerHTML = `
+
+                    <td>
+                        ${escapeHTML(
+                            order.queue_number ??
+                            "-"
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            order.original_name ??
+                            "-"
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            order.total_pages ??
+                            0
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            order.copies ??
+                            0
+                        )}
+                    </td>
+
+                    <td>
+                        ₹${escapeHTML(
+                            order.total_amount ??
+                            0
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            order.payment_status ??
+                            "-"
+                        )}
+                    </td>
+
+                    <td>
+                        ${escapeHTML(
+                            order.printer_status ??
+                            "-"
+                        )}
+                    </td>
+
+                    <td>
+                        ${formatTime(
+                            order.created_at
+                        )}
+                    </td>
+
+                `;
+
+                ordersBody.appendChild(
+                    row
+                );
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Orders loading error:",
+            error
+        );
+
+        if (ordersBody) {
+
+            ordersBody.innerHTML = `
+                <tr>
+                    <td
+                        colspan="8"
+                        style="text-align:center;"
+                    >
+                        Unable to load orders.
+                    </td>
+                </tr>
+            `;
+        }
     }
-
-
-    orders.forEach(order => {
-
-        const row = document.createElement("tr");
-
-        row.innerHTML = `
-
-            <td>
-                ${order.queue_number || "-"}
-            </td>
-
-            <td>
-                ${escapeHTML(
-                    order.original_name || "-"
-                )}
-            </td>
-
-            <td>
-                ${order.total_pages ?? 0}
-            </td>
-
-            <td>
-                ${order.copies ?? 1}
-            </td>
-
-            <td>
-                ₹${order.total_amount ?? 0}
-            </td>
-
-            <td>
-                ${escapeHTML(
-                    order.payment_status || "-"
-                )}
-            </td>
-
-            <td>
-                ${escapeHTML(
-                    order.printer_status || "-"
-                )}
-            </td>
-
-            <td>
-                ${formatTime(order.created_at)}
-            </td>
-
-        `;
-
-        ordersBody.appendChild(row);
-
-    });
-
 }
 
 
-/* =====================================================
-   13. LOAD QUEUE
-===================================================== */
+/* =========================================================
+   12. HTML ESCAPE
+   ========================================================= */
+
+function escapeHTML(value) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+    div.textContent =
+        String(value ?? "");
+
+    return div.innerHTML;
+}
+
+
+/* =========================================================
+   13. FORMAT TIME
+   ========================================================= */
+
+function formatTime(
+    dateString
+) {
+
+    if (!dateString) {
+
+        return "-";
+    }
+
+    const date =
+        new Date(dateString);
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+
+        return "-";
+    }
+
+    return date.toLocaleString(
+        "en-IN",
+        {
+            dateStyle: "medium",
+            timeStyle: "short"
+        }
+    );
+}
+
+
+/* =========================================================
+   14. LOAD QUEUE
+   ========================================================= */
 
 async function loadQueue() {
 
-    const response = await fetch(
-        `${API_URL}/vendor/${vendorId}/queue`
-    );
+    try {
 
-    if (!response.ok) {
+        const response =
+            await apiRequest(
+                `/vendor/${vendorId}/queue`
+            );
 
-        throw new Error(
-            "Unable to load queue."
+        const queue =
+            await response.json();
+
+
+        if (currentQueue) {
+
+            currentQueue.textContent =
+                queue.current ?? "-";
+        }
+
+
+        if (nextQueue) {
+
+            nextQueue.textContent =
+                queue.next ?? "-";
+        }
+
+
+        if (waitingJobs) {
+
+            waitingJobs.textContent =
+                queue.waiting ?? 0;
+        }
+
+
+        if (estimatedWait) {
+
+            estimatedWait.textContent =
+                `${queue.wait_time ?? 0} min`;
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Queue loading error:",
+            error
         );
-
     }
-
-    const queue = await response.json();
-
-
-    if (currentQueue) {
-        currentQueue.textContent =
-            queue.current ?? 0;
-    }
-
-    if (nextQueue) {
-        nextQueue.textContent =
-            queue.next ?? 0;
-    }
-
-    if (waitingJobs) {
-        waitingJobs.textContent =
-            queue.waiting ?? 0;
-    }
-
-    if (estimatedWait) {
-        estimatedWait.textContent =
-            (queue.wait_time ?? 0) + " min";
-    }
-
 }
 
 
-/* =====================================================
-   14. LOAD VENDOR SETTINGS
-===================================================== */
+/* =========================================================
+   15. LOAD VENDOR SETTINGS
+   ========================================================= */
 
 async function loadVendorSettings() {
 
-    const response = await fetch(
-        `${API_URL}/vendor/${vendorId}/settings`
-    );
+    try {
 
-    if (!response.ok) {
+        const response =
+            await apiRequest(
+                `/vendor/${vendorId}/settings`
+            );
 
-        console.warn(
-            "Vendor settings could not be loaded."
-        );
-
-        return;
-
-    }
-
-    const settings = await response.json();
+        const settings =
+            await response.json();
 
 
-    if (shopName) {
-        shopName.value =
-            settings.shop_name || "";
-    }
+        /* ---------- Maintenance ---------- */
 
-    if (ownerName) {
-        ownerName.value =
-            settings.owner_name || "";
-    }
+        if (maintenanceToggle) {
 
-    if (shopPhone) {
-        shopPhone.value =
-            settings.phone || "";
-    }
-
-    if (shopAddress) {
-        shopAddress.value =
-            settings.address || "";
-    }
-
-    if (razorpayKey) {
-        razorpayKey.value =
-            settings.razorpay_key || "";
-    }
-
-    if (razorpaySecret) {
-        razorpaySecret.value =
-            settings.razorpay_secret || "";
-    }
-
-    if (sheetId) {
-        sheetId.value =
-            settings.google_sheet_id || "";
-    }
-
-    if (serviceEmail) {
-        serviceEmail.value =
-            settings.service_email || "";
-    }
-
-    if (smtpHost) {
-        smtpHost.value =
-            settings.smtp_host || "";
-    }
-
-    if (smtpPort) {
-        smtpPort.value =
-            settings.smtp_port || 587;
-    }
-
-    if (smtpEmail) {
-        smtpEmail.value =
-            settings.smtp_email || "";
-    }
-
-    if (smtpPassword) {
-        smtpPassword.value =
-            settings.smtp_password || "";
-    }
-
-}
-
-
-/* =====================================================
-   15. SAVE VENDOR SETTINGS
-===================================================== */
-
-if (saveSettingsBtn) {
-
-    saveSettingsBtn.addEventListener(
-        "click",
-        async function () {
-
-            const originalText =
-                this.textContent;
-
-            this.disabled = true;
-            this.textContent = "Saving...";
-
-
-            try {
-
-                const payload = {
-
-                    shop_name:
-                        shopName
-                            ? shopName.value.trim()
-                            : "",
-
-                    owner_name:
-                        ownerName
-                            ? ownerName.value.trim()
-                            : "",
-
-                    phone:
-                        shopPhone
-                            ? shopPhone.value.trim()
-                            : "",
-
-                    address:
-                        shopAddress
-                            ? shopAddress.value.trim()
-                            : "",
-
-                    maintenance:
-                        maintenanceToggle
-                            ? maintenanceToggle.checked
-                            : false,
-
-                    accept_orders: true,
-
-                    razorpay_key:
-                        razorpayKey
-                            ? razorpayKey.value.trim()
-                            : "",
-
-                    razorpay_secret:
-                        razorpaySecret
-                            ? razorpaySecret.value
-                            : "",
-
-                    google_sheet_id:
-                        sheetId
-                            ? sheetId.value.trim()
-                            : "",
-
-                    service_email:
-                        serviceEmail
-                            ? serviceEmail.value.trim()
-                            : "",
-
-                    smtp_host:
-                        smtpHost
-                            ? smtpHost.value.trim()
-                            : "",
-
-                    smtp_port:
-                        smtpPort
-                            ? Number(
-                                smtpPort.value || 587
-                            )
-                            : 587,
-
-                    smtp_email:
-                        smtpEmail
-                            ? smtpEmail.value.trim()
-                            : "",
-
-                    smtp_password:
-                        smtpPassword
-                            ? smtpPassword.value
-                            : ""
-
-                };
-
-
-                const response = await fetch(
-                    `${API_URL}/vendor/${vendorId}/settings`,
-                    {
-                        method: "PUT",
-
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body:
-                            JSON.stringify(payload)
-                    }
+            maintenanceToggle.checked =
+                Boolean(
+                    settings.maintenance
                 );
-
-
-                const data =
-                    await response.json();
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        data.detail ||
-                        "Unable to save settings."
-                    );
-
-                }
-
-
-                showToast(
-                    "Settings saved successfully.",
-                    "success"
-                );
-
-
-                /*
-                   Keep dashboard header
-                   synchronized with updated
-                   shop information.
-                */
-
-                if (vendorShopName) {
-                    vendorShopName.textContent =
-                        payload.shop_name ||
-                        "ServePrint Shop";
-                }
-
-                if (vendorOwnerName) {
-                    vendorOwnerName.textContent =
-                        payload.owner_name || "";
-                }
-
-
-            } catch (error) {
-
-                console.error(
-                    "Settings save error:",
-                    error
-                );
-
-                showToast(
-                    error.message ||
-                    "Unable to save settings.",
-                    "error"
-                );
-
-
-            } finally {
-
-                this.disabled = false;
-                this.textContent = originalText;
-
-            }
-
         }
-    );
 
+
+        /* ---------- Accept Orders ---------- */
+
+        if (ordersToggle) {
+
+            ordersToggle.checked =
+                settings.accept_orders !==
+                false;
+        }
+
+
+        /* ---------- Printer ---------- */
+
+        if (printerStatus) {
+
+            printerStatus.textContent =
+                settings.printer_status ||
+                "Online";
+        }
+
+
+        /* ---------- Shop Information ---------- */
+
+        if (shopName) {
+
+            shopName.value =
+                settings.shop_name ||
+                vendorSession.shop_name ||
+                "";
+        }
+
+
+        if (ownerName) {
+
+            ownerName.value =
+                settings.owner_name ||
+                vendorSession.owner_name ||
+                "";
+        }
+
+
+        if (shopPhone) {
+
+            shopPhone.value =
+                settings.phone ||
+                "";
+        }
+
+
+        if (shopAddress) {
+
+            shopAddress.value =
+                settings.address ||
+                "";
+        }
+
+
+        /* ---------- Razorpay ---------- */
+
+        if (razorpayKey) {
+
+            razorpayKey.value =
+                settings.razorpay_key ||
+                "";
+        }
+
+
+        if (razorpaySecret) {
+
+            razorpaySecret.value =
+                settings.razorpay_secret ||
+                "";
+        }
+
+
+        /* ---------- Google Sheets ---------- */
+
+        if (sheetId) {
+
+            sheetId.value =
+                settings.google_sheet_id ||
+                "";
+        }
+
+
+        if (serviceEmail) {
+
+            serviceEmail.value =
+                settings.service_email ||
+                "";
+        }
+
+
+        /* ---------- SMTP ---------- */
+
+        if (smtpHost) {
+
+            smtpHost.value =
+                settings.smtp_host ||
+                "";
+        }
+
+
+        if (smtpPort) {
+
+            smtpPort.value =
+                settings.smtp_port ??
+                587;
+        }
+
+
+        if (smtpEmail) {
+
+            smtpEmail.value =
+                settings.smtp_email ||
+                "";
+        }
+
+
+        if (smtpPassword) {
+
+            smtpPassword.value =
+                settings.smtp_password ||
+                "";
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Settings loading error:",
+            error
+        );
+    }
 }
 
 
-/* =====================================================
+/* =========================================================
    16. LOAD VENDOR QR
-===================================================== */
+   ========================================================= */
+
+let vendorQRLink = "";
+
 
 async function loadVendorQR() {
 
+    if (!vendorQR) {
+        return;
+    }
+
     try {
 
-        const response = await fetch(
-            `${API_URL}/vendor/${vendorId}/qr`
-        );
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Unable to load vendor QR."
+        const response =
+            await apiRequest(
+                `/vendor/${vendorId}/qr`
             );
-
-        }
 
         const data =
             await response.json();
@@ -788,22 +946,38 @@ async function loadVendorQR() {
             data.url || "";
 
 
-        if (vendorShopName && data.shop_name) {
+        if (vendorShopName) {
 
             vendorShopName.textContent =
-                data.shop_name;
-
+                data.shop_name ||
+                vendorSession.shop_name ||
+                "ServePrint Shop";
         }
 
 
-        if (vendorQR && data.url) {
+        /*
+         The backend QR endpoint may return
+         an image directly.
+
+         If it returns a URL object,
+         use QR Server to render it.
+        */
+
+        if (data.url) {
 
             vendorQR.src =
                 "https://api.qrserver.com/v1/create-qr-code/" +
                 "?size=300x300&data=" +
-                encodeURIComponent(data.url);
+                encodeURIComponent(
+                    data.url
+                );
 
+        } else {
+
+            vendorQR.src =
+                `${API_URL}/vendor/${vendorId}/qr`;
         }
+
 
     } catch (error) {
 
@@ -811,34 +985,28 @@ async function loadVendorQR() {
             "QR loading error:",
             error
         );
-
     }
-
 }
 
 
-/* =====================================================
+/* =========================================================
    17. COPY QR LINK
-===================================================== */
-
-const copyQRLink =
-    document.getElementById("copyQRLink");
+   ========================================================= */
 
 if (copyQRLink) {
 
     copyQRLink.addEventListener(
         "click",
-        async function () {
+        async () => {
 
             if (!vendorQRLink) {
 
                 showToast(
-                    "QR link is not available yet.",
+                    "QR link is not available.",
                     "error"
                 );
 
                 return;
-
             }
 
 
@@ -861,94 +1029,94 @@ if (copyQRLink) {
                     "Unable to copy QR link.",
                     "error"
                 );
-
             }
-
         }
     );
-
 }
 
 
-/* =====================================================
-   18. DOWNLOAD QR PNG
-===================================================== */
-
-const downloadPNG =
-    document.getElementById("downloadPNG");
+/* =========================================================
+   18. DOWNLOAD PNG
+   ========================================================= */
 
 if (downloadPNG) {
 
     downloadPNG.addEventListener(
         "click",
-        function () {
+        () => {
 
-            if (!vendorQR || !vendorQR.src) {
+            if (!vendorQRLink) {
 
                 showToast(
-                    "QR code is not ready.",
+                    "QR is not ready.",
                     "error"
                 );
 
                 return;
-
             }
 
 
+            const qrURL =
+                "https://api.qrserver.com/v1/create-qr-code/" +
+                "?size=1000x1000&format=png&data=" +
+                encodeURIComponent(
+                    vendorQRLink
+                );
+
+
             const link =
-                document.createElement("a");
+                document.createElement(
+                    "a"
+                );
 
             link.href =
-                vendorQR.src;
+                qrURL;
 
             link.download =
                 "ServePrint_QR.png";
 
-            document.body.appendChild(link);
+            link.target =
+                "_blank";
 
             link.click();
-
-            link.remove();
-
         }
     );
-
 }
 
 
-/* =====================================================
+/* =========================================================
    19. DOWNLOAD SVG
-===================================================== */
-
-const downloadSVG =
-    document.getElementById("downloadSVG");
+   =============== */
 
 if (downloadSVG) {
 
     downloadSVG.addEventListener(
         "click",
-        function () {
+        () => {
 
             if (!vendorQRLink) {
 
                 showToast(
-                    "QR link is not available.",
+                    "QR is not ready.",
                     "error"
                 );
 
                 return;
-
             }
 
 
             const svgURL =
                 "https://api.qrserver.com/v1/create-qr-code/" +
-                "?format=svg&size=300x300&data=" +
-                encodeURIComponent(vendorQRLink);
+                "?size=1000x1000&format=svg&data=" +
+                encodeURIComponent(
+                    vendorQRLink
+                );
 
 
             const link =
-                document.createElement("a");
+                document.createElement(
+                    "a"
+                );
 
             link.href =
                 svgURL;
@@ -956,48 +1124,52 @@ if (downloadSVG) {
             link.download =
                 "ServePrint_QR.svg";
 
-            document.body.appendChild(link);
+            link.target =
+                "_blank";
 
             link.click();
-
-            link.remove();
-
         }
     );
-
 }
 
 
-/* =====================================================
+/* =========================================================
    20. PRINT QR
-===================================================== */
-
-const printQR =
-    document.getElementById("printQR");
+   ========================================================= */
 
 if (printQR) {
 
     printQR.addEventListener(
         "click",
-        function () {
+        () => {
 
-            if (!vendorQR || !vendorQR.src) {
+            if (!vendorQRLink) {
 
                 showToast(
-                    "QR code is not ready.",
+                    "QR is not ready.",
                     "error"
                 );
 
                 return;
-
             }
 
 
-            const win =
-                window.open("", "_blank");
+            const qrURL =
+                "https://api.qrserver.com/v1/create-qr-code/" +
+                "?size=500x500&data=" +
+                encodeURIComponent(
+                    vendorQRLink
+                );
 
 
-            if (!win) {
+            const printWindow =
+                window.open(
+                    "",
+                    "_blank"
+                );
+
+
+            if (!printWindow) {
 
                 showToast(
                     "Please allow pop-ups to print the QR.",
@@ -1005,11 +1177,10 @@ if (printQR) {
                 );
 
                 return;
-
             }
 
 
-            win.document.write(`
+            printWindow.document.write(`
                 <!DOCTYPE html>
 
                 <html>
@@ -1020,22 +1191,52 @@ if (printQR) {
                         ServePrint QR
                     </title>
 
+                    <style>
+
+                        body {
+                            margin: 0;
+                            padding: 40px;
+                            text-align: center;
+                            font-family: Arial, sans-serif;
+                        }
+
+                        img {
+                            width: 300px;
+                            height: 300px;
+                        }
+
+                        h2 {
+                            margin-bottom: 20px;
+                        }
+
+                    </style>
+
                 </head>
 
-                <body
-                    style="
-                        margin:0;
-                        display:flex;
-                        justify-content:center;
-                        align-items:center;
-                        min-height:100vh;
-                    "
-                >
+                <body>
+
+                    <h2>
+                        ${escapeHTML(
+                            vendorSession.shop_name ||
+                            "ServePrint Shop"
+                        )}
+                    </h2>
 
                     <img
-                        src="${vendorQR.src}"
-                        style="width:300px;height:300px;"
+                        src="${qrURL}"
+                        alt="ServePrint QR"
                     >
+
+                    <script>
+
+                        window.onload =
+                            function () {
+
+                                window.print();
+
+                            };
+
+                    <\/script>
 
                 </body>
 
@@ -1043,54 +1244,452 @@ if (printQR) {
             `);
 
 
-            win.document.close();
-
-
-            win.onload = function () {
-
-                win.focus();
-                win.print();
-
-            };
-
+            printWindow.document.close();
         }
     );
+}
 
+/* =========================================================
+   21. MAINTENANCE MODE
+   ========================================================= */
+
+if (maintenanceToggle) {
+
+    maintenanceToggle.addEventListener(
+        "change",
+        async function () {
+
+            const enabled =
+                this.checked;
+
+
+            try {
+
+                const response =
+                    await apiRequest(
+                        `/vendor/${vendorId}/maintenance` +
+                        `?enabled=${enabled}`,
+                        {
+                            method: "POST"
+                        }
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                if (
+                    data.success !== true
+                ) {
+
+                    throw new Error(
+                        "Maintenance update failed."
+                    );
+                }
+
+
+                showToast(
+                    enabled
+                        ? "Maintenance mode enabled."
+                        : "Maintenance mode disabled.",
+                    "success"
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Maintenance error:",
+                    error
+                );
+
+
+                /*
+                 Revert switch if
+                 backend update fails.
+                */
+
+                this.checked =
+                    !enabled;
+
+
+                showToast(
+                    error.message ||
+                    "Unable to update maintenance mode.",
+                    "error"
+                );
+            }
+        }
+    );
 }
 
 
-/* =====================================================
-   21. REFRESH BUTTON
-===================================================== */
+/* =========================================================
+   22. ACCEPT NEW ORDERS
+   ========================================================= */
+
+if (ordersToggle) {
+
+    ordersToggle.addEventListener(
+        "change",
+        async function () {
+
+            const enabled =
+                this.checked;
+
+
+            try {
+
+                /*
+                 The existing backend settings
+                 endpoint expects the complete
+                 VendorSettingsUpdate object.
+
+                 Therefore we first load the
+                 current settings and then update
+                 only accept_orders.
+                */
+
+                const response =
+                    await apiRequest(
+                        `/vendor/${vendorId}/settings`
+                    );
+
+                const current =
+                    await response.json();
+
+
+                const payload = {
+
+                    shop_name:
+                        current.shop_name ||
+                        vendorSession.shop_name ||
+                        "",
+
+                    owner_name:
+                        current.owner_name ||
+                        vendorSession.owner_name ||
+                        "",
+
+                    phone:
+                        current.phone ||
+                        "",
+
+                    address:
+                        current.address ||
+                        "",
+
+                    maintenance:
+                        Boolean(
+                            current.maintenance
+                        ),
+
+                    accept_orders:
+                        enabled,
+
+                    razorpay_key:
+                        current.razorpay_key ||
+                        "",
+
+                    razorpay_secret:
+                        current.razorpay_secret ||
+                        "",
+
+                    google_sheet_id:
+                        current.google_sheet_id ||
+                        "",
+
+                    service_email:
+                        current.service_email ||
+                        "",
+
+                    smtp_host:
+                        current.smtp_host ||
+                        "",
+
+                    smtp_port:
+                        Number(
+                            current.smtp_port ||
+                            587
+                        ),
+
+                    smtp_email:
+                        current.smtp_email ||
+                        "",
+
+                    smtp_password:
+                        current.smtp_password ||
+                        ""
+                };
+
+
+                await apiRequest(
+                    `/vendor/${vendorId}/settings`,
+                    {
+                        method: "PUT",
+                        body:
+                            JSON.stringify(
+                                payload
+                            )
+                    }
+                );
+
+
+                showToast(
+                    enabled
+                        ? "New orders enabled."
+                        : "New orders stopped.",
+                    "success"
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Accept orders error:",
+                    error
+                );
+
+
+                this.checked =
+                    !enabled;
+
+
+                showToast(
+                    error.message ||
+                    "Unable to update order settings.",
+                    "error"
+                );
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   23. SAVE VENDOR SETTINGS
+   ========================================================= */
+
+if (saveSettingsBtn) {
+
+    saveSettingsBtn.addEventListener(
+        "click",
+        async () => {
+
+            try {
+
+                const payload = {
+
+                    shop_name:
+                        shopName?.value.trim() ||
+                        "",
+
+                    owner_name:
+                        ownerName?.value.trim() ||
+                        "",
+
+                    phone:
+                        shopPhone?.value.trim() ||
+                        "",
+
+                    address:
+                        shopAddress?.value.trim() ||
+                        "",
+
+                    maintenance:
+                        Boolean(
+                            maintenanceToggle?.checked
+                        ),
+
+                    accept_orders:
+                        ordersToggle
+                            ? Boolean(
+                                ordersToggle.checked
+                            )
+                            : true,
+
+                    razorpay_key:
+                        razorpayKey?.value.trim() ||
+                        "",
+
+                    razorpay_secret:
+                        razorpaySecret?.value.trim() ||
+                        "",
+
+                    google_sheet_id:
+                        sheetId?.value.trim() ||
+                        "",
+
+                    service_email:
+                        serviceEmail?.value.trim() ||
+                        "",
+
+                    smtp_host:
+                        smtpHost?.value.trim() ||
+                        "",
+
+                    smtp_port:
+                        Number(
+                            smtpPort?.value ||
+                            587
+                        ),
+
+                    smtp_email:
+                        smtpEmail?.value.trim() ||
+                        "",
+
+                    smtp_password:
+                        smtpPassword?.value ||
+                        ""
+                };
+
+
+                await apiRequest(
+                    `/vendor/${vendorId}/settings`,
+                    {
+                        method: "PUT",
+
+                        body:
+                            JSON.stringify(
+                                payload
+                            )
+                    }
+                );
+
+
+                /*
+                 Update local session
+                 with changed shop details.
+                */
+
+                vendorSession.shop_name =
+                    payload.shop_name;
+
+                vendorSession.owner_name =
+                    payload.owner_name;
+
+
+                localStorage.setItem(
+                    "serveprint_vendor",
+                    JSON.stringify(
+                        vendorSession
+                    )
+                );
+
+
+                if (vendorShopName) {
+
+                    vendorShopName.textContent =
+                        payload.shop_name;
+                }
+
+
+                if (vendorOwnerName) {
+
+                    vendorOwnerName.textContent =
+                        payload.owner_name;
+                }
+
+
+                showToast(
+                    "Settings saved successfully.",
+                    "success"
+                );
+
+
+                await loadVendorSettings();
+
+
+            } catch (error) {
+
+                console.error(
+                    "Save settings error:",
+                    error
+                );
+
+
+                showToast(
+                    error.message ||
+                    "Unable to save settings.",
+                    "error"
+                );
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   24. REFRESH DASHBOARD
+   ========================================================= */
+
+async function refreshDashboard() {
+
+    showLoader();
+
+
+    try {
+
+        await Promise.all([
+            loadDashboardStats(),
+            loadOrders(),
+            loadQueue(),
+            loadVendorSettings(),
+            loadVendorQR()
+        ]);
+
+
+    } catch (error) {
+
+        console.error(
+            "Dashboard refresh error:",
+            error
+        );
+
+
+        showToast(
+            "Unable to refresh dashboard.",
+            "error"
+        );
+
+
+    } finally {
+
+        hideLoader();
+    }
+}
+
+/* =========================================================
+   25. REFRESH BUTTON
+   ========================================================= */
 
 if (refreshBtn) {
 
     refreshBtn.addEventListener(
         "click",
-        async function () {
+        async () => {
 
-            await loadDashboard();
+            await refreshDashboard();
 
             showToast(
                 "Dashboard updated.",
                 "success"
             );
-
         }
     );
-
 }
 
 
-/* =====================================================
-   22. LOGOUT
-===================================================== */
+/* =========================================================
+   26. LOGOUT
+   ========================================================= */
 
 if (logoutBtn) {
 
     logoutBtn.addEventListener(
         "click",
-        function () {
+        () => {
 
             localStorage.removeItem(
                 "serveprint_vendor"
@@ -1099,11 +1698,6 @@ if (logoutBtn) {
             localStorage.removeItem(
                 "remember_vendor"
             );
-
-            /*
-               Remove these too in case an
-               older dashboard version created them.
-            */
 
             localStorage.removeItem(
                 "vendor_id"
@@ -1116,284 +1710,77 @@ if (logoutBtn) {
 
             window.location.href =
                 "vendor_login.html";
-
         }
     );
-
 }
 
 
-/* =====================================================
-   23. MAINTENANCE TOGGLE
-===================================================== */
+/* =========================================================
+   27. INITIAL DASHBOARD LOAD
+   ========================================================= */
 
-if (maintenanceToggle) {
+async function initializeDashboard() {
 
-    maintenanceToggle.addEventListener(
-        "change",
-        async function () {
-
-            const enabled =
-                this.checked;
-
-
-            /*
-               Save previous state.
-            */
-
-            const previousState =
-                !enabled;
-
-
-            this.disabled = true;
-
-
-            try {
-
-                const response = await fetch(
-                    `${API_URL}/vendor/${vendorId}/maintenance` +
-                    `?enabled=${enabled}`,
-                    {
-                        method: "POST"
-                    }
-                );
-
-
-                let data = {};
-
-                try {
-
-                    data =
-                        await response.json();
-
-                } catch (error) {
-
-                    data = {};
-
-                }
-
-
-                if (!response.ok) {
-
-                    throw new Error(
-                        data.detail ||
-                        "Unable to update maintenance mode."
-                    );
-
-                }
-
-
-                /*
-                   Make sure UI reflects
-                   backend response.
-                */
-
-                this.checked =
-                    Boolean(
-                        data.maintenance
-                    );
-
-
-                showToast(
-                    this.checked
-                        ? "Maintenance mode enabled."
-                        : "Maintenance mode disabled.",
-                    "success"
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "Maintenance update error:",
-                    error
-                );
-
-
-                /*
-                   Backend update failed.
-                   Restore old switch state.
-                */
-
-                this.checked =
-                    previousState;
-
-
-                showToast(
-                    "Unable to update maintenance mode.",
-                    "error"
-                );
-
-
-            } finally {
-
-                this.disabled = false;
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   24. LOAD MAINTENANCE STATUS
-===================================================== */
-
-async function loadMaintenanceStatus() {
-
-    if (!maintenanceToggle) {
-        return;
-    }
+    showLoader();
 
 
     try {
 
-        const response = await fetch(
-            `${API_URL}/vendor/${vendorId}/status`
-        );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Unable to load maintenance status."
-            );
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        maintenanceToggle.checked =
-            Boolean(data.maintenance);
+        await Promise.all([
+            loadDashboardStats(),
+            loadOrders(),
+            loadQueue(),
+            loadVendorSettings(),
+            loadVendorQR()
+        ]);
 
 
     } catch (error) {
 
         console.error(
-            "Maintenance status error:",
+            "Dashboard initialization error:",
             error
         );
 
-    }
 
-}
-
-
-/* =====================================================
-   25. AUTO REFRESH
-===================================================== */
-
-let refreshTimer = null;
-
-
-function startAutoRefresh() {
-
-    if (refreshTimer) {
-        clearInterval(refreshTimer);
-    }
-
-
-    refreshTimer =
-        setInterval(
-            async function () {
-
-                /*
-                   Do not show the full loading
-                   overlay during automatic refresh.
-                */
-
-                try {
-
-                    await Promise.all([
-                        loadDashboardStats(),
-                        loadOrders(),
-                        loadQueue(),
-                        loadMaintenanceStatus()
-                    ]);
-
-                } catch (error) {
-
-                    console.error(
-                        "Auto refresh error:",
-                        error
-                    );
-
-                }
-
-            },
-            30000
+        showToast(
+            "Unable to load dashboard.",
+            "error"
         );
 
+
+    } finally {
+
+        hideLoader();
+    }
 }
 
 
-/* =====================================================
-   26. HTML ESCAPE
-===================================================== */
+/* =========================================================
+   28. START
+   ========================================================= */
 
-function escapeHTML(value) {
+if (
+    document.readyState ===
+    "loading"
+) {
 
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeDashboard
+    );
 
+} else {
+
+    initializeDashboard();
 }
 
 
-/* =====================================================
-   27. FORMAT DATE
-===================================================== */
+/* =========================================================
+   29. AUTO REFRESH
+   ========================================================= */
 
-function formatTime(dateString) {
-
-    if (!dateString) {
-        return "-";
-    }
-
-
-    const date =
-        new Date(dateString);
-
-
-    if (Number.isNaN(date.getTime())) {
-        return "-";
-    }
-
-
-    return date.toLocaleString();
-
-}
-
-
-/* =====================================================
-   28. START DASHBOARD
-===================================================== */
-
-window.addEventListener(
-    "DOMContentLoaded",
-    async function () {
-
-        await loadDashboard();
-
-        startAutoRefresh();
-
-    }
-);
-
-
-console.log(
-    "ServePrint Vendor Dashboard loaded."
-);
-
-console.log(
-    "Vendor ID:",
-    vendorId
+setInterval(
+    refreshDashboard,
+    30000
 );
