@@ -1164,7 +1164,6 @@ def set_vendor_maintenance(
 # ==========================================
 # Public Vendor Status API
 # ==========================================
-
 @app.get("/vendor/{vendor_id}/status")
 def get_vendor_status(vendor_id: str):
 
@@ -1198,6 +1197,75 @@ def get_vendor_status(vendor_id: str):
         )
 
     return {
+        "valid": True,
+        "active": True,
+        "vendor_id": vendor_id,
+        "shop_name": vendor["shop_name"],
+        "maintenance": maintenance,
+        "accept_orders": accept_orders
+    }
+
+# ==========================================
+# Customer Vendor Validation API
+# ==========================================
+
+@app.get("/customer/vendor/{vendor_id}/validate")
+def validate_customer_vendor(vendor_id: str):
+
+    vendor = get_vendor_by_id(
+        vendor_id
+    )
+
+    # --------------------------------------
+    # Vendor does not exist
+    # --------------------------------------
+
+    if vendor is None:
+
+        return {
+            "valid": False,
+            "vendor_id": vendor_id,
+            "message": "Shop not found."
+        }
+
+    # --------------------------------------
+    # Maintenance
+    # --------------------------------------
+
+    maintenance = get_vendor_maintenance(
+        vendor_id
+    )
+
+    if maintenance is None:
+        maintenance = False
+
+    # --------------------------------------
+    # Vendor Settings
+    # --------------------------------------
+
+    settings = get_vendor_settings(
+        vendor_id
+    )
+
+    if settings is None:
+
+        accept_orders = True
+
+    else:
+
+        accept_orders = bool(
+            settings.get(
+                "accept_orders",
+                True
+            )
+        )
+
+    # --------------------------------------
+    # Response
+    # --------------------------------------
+
+    return {
+        "valid": True,
         "vendor_id": vendor_id,
         "shop_name": vendor["shop_name"],
         "maintenance": maintenance,
