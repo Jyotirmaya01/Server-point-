@@ -14,6 +14,7 @@ from datetime import datetime
 import asyncio
 import shutil
 import uuid
+import razorpay
 
 from fastapi import (
     FastAPI,
@@ -59,6 +60,9 @@ from database import (
     mark_payment_pending,
     mark_payment_success,
     mark_payment_failed,
+    save_razorpay_order,
+    get_razorpay_order_id,
+    save_razorpay_payment,
     assign_queue_after_payment,
     start_printing,
     complete_printing,
@@ -871,18 +875,241 @@ def printer_status(
 
     }
 # ==========================================
-# Verify / Confirm Payment
+# Create Razorpay Order
 # ==========================================
 
-@app.post("/payment/{job_id}")
-def verify_payment(
-    job_id: str,
-    payment_id: str
+@app.post("/payment/create/{job_id}")
+def create_razorpay_order(
+    job_id: str
 ):
 
-    # ----------------------------------
+    # --------------------------------------
+    # Get Print Job
+    # --------------------------------------
+
+    job = get_print_job(job_id)
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+    # --------------------------------------
+    # Payment State
+    # --------------------------------------
+
+    if job["payment_status"] == "Paid":
+
+        raise HTTPException(
+            status_code=400,
+            detail="This job has already been paid."
+        )
+
+    if job["payment_status"] != "Pending":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment cannot be created from "
+                f"'{job['payment_status']}' state."
+            )
+        )
+
+    # --------------------------------------
+    # Vendor
+    # --------------------------------------
+
+    vendor_id = job["vendor_id"]
+
+    vendor = get_vendor_by_id(
+        vendor_id
+    )
+
+    if vendor is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found."
+        )
+
+    # --------------------------------------
+    # Vendor Razorpay Settings
+    # --------------------------------------
+
+    settings = get_vendor_settings(
+        vendor_id
+    )
+
+    if settings is None:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Vendor settings not found."
+        )
+
+    key_id = (
+        settings.get(
+            "razorpay_key"
+        ) or ""
+    ).strip()
+
+    key_secret = (
+        settings.get(
+            "razorpay_secret"
+        ) or ""
+    ).strip()
+
+    if not key_id or not key_secret:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Razorpay is not configured "
+                "for this vendor."
+            )
+        )
+
+    # --------------------------------------
+    # Amount
+    # Razorpay uses paise
+    # ₹10 = 1000 paise
+    # --------------------------------------
+
+    amount_rupees = float(
+        job["total_amount"] or 0
+    )
+
+    amount_paise = int(
+        round(
+            amount_rupees * 100
+        )
+    )
+
+    if amount_paise < 100:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment amount must be at "
+                "least ₹1."
+            )
+        )
+
+    # --------------------------------------
+    # Razorpay Client
+    # --------------------------------------
+
+    try:
+
+        client = razorpay.Client(
+            auth=(
+                key_id,
+                key_secret
+            )
+        )
+
+        order = client.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": job_id[:40],
+            "notes": {
+                "job_id": job_id,
+                "vendor_id": vendor_id
+            }
+        })
+
+    except Exception as error:
+
+        logger.exception(
+            "Razorpay order creation failed"
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Unable to create Razorpay order."
+            )
+        )
+
+    razorpay_order_id = (
+        order.get("id")
+    )
+
+    if not razorpay_order_id:
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Razorpay did not return "
+                "an order ID."
+            )
+        )
+
+    # --------------------------------------
+    # Save Razorpay Order
+    # --------------------------------------
+
+    save_razorpay_order(
+        job_id,
+        razorpay_order_id
+    )
+
+    # --------------------------------------
+    # Response
+    # --------------------------------------
+
+    return {
+
+        "success": True,
+
+        "job_id":
+            job_id,
+
+        "vendor_id":
+            vendor_id,
+
+        "razorpay_order_id":
+            razorpay_order_id,
+
+        "razorpay_key_id":
+            key_id,
+
+        "amount":
+            amount_paise,
+
+        "amount_rupees":
+            amount_rupees,
+
+        "currency":
+            "INR",
+
+        "payment_status":
+            "Pending"
+    }
+
+# ==========================================
+# Verify Razorpay Payment
+# ==========================================
+
+class RazorpayPaymentVerification(
+    BaseModel
+):
+
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+@app.post("/payment/verify/{job_id}")
+def verify_razorpay_payment(
+    job_id: str,
+    data: RazorpayPaymentVerification
+):
+
+    # --------------------------------------
     # Get Job
-    # ----------------------------------
+    # --------------------------------------
 
     job = get_print_job(
         job_id
@@ -895,59 +1122,237 @@ def verify_payment(
             detail="Job not found."
         )
 
-    # ----------------------------------
-    # Validate Payment ID
-    # ----------------------------------
-
-    if not payment_id or not payment_id.strip():
-
-        raise HTTPException(
-            status_code=400,
-            detail="Payment ID is required."
-        )
-
-    # ----------------------------------
+    # --------------------------------------
     # Already Paid
-    # ----------------------------------
+    # --------------------------------------
 
     if job["payment_status"] == "Paid":
 
         return {
+
             "success": True,
-            "job_id": job_id,
-            "payment_id":
-                job["payment_id"],
-            "payment_status": "Paid",
+
+            "job_id":
+                job_id,
+
+            "payment_status":
+                "Paid",
+
             "queue_number":
                 job["queue_number"],
-            "estimated_wait_time":
-                max(
-                    0,
-                    (job["queue_number"] - 1) * 2
-                ),
-            "printer_status":
-                job["printer_status"],
+
             "message":
-                "Payment was already completed."
+                "Payment already completed."
         }
 
-    # ----------------------------------
-    # Only Pending Can Become Paid
-    # ----------------------------------
+    # --------------------------------------
+    # Only Pending Can Be Paid
+    # --------------------------------------
 
     if job["payment_status"] != "Pending":
 
         raise HTTPException(
             status_code=400,
             detail=(
-                "Payment cannot be processed "
+                "Payment cannot be verified "
                 f"from '{job['payment_status']}' state."
             )
         )
 
-    # ----------------------------------
-    # Process Payment State
-    # ----------------------------------
+    # --------------------------------------
+    # Stored Razorpay Order ID
+    # --------------------------------------
+
+    razorpay_order_id = (
+        get_razorpay_order_id(
+            job_id
+        )
+    )
+
+    if not razorpay_order_id:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Razorpay order was not "
+                "created for this job."
+            )
+        )
+
+    # --------------------------------------
+    # Vendor Credentials
+    # --------------------------------------
+
+    settings = get_vendor_settings(
+        job["vendor_id"]
+    )
+
+    if settings is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor settings not found."
+        )
+
+    key_id = (
+        settings.get(
+            "razorpay_key"
+        ) or ""
+    ).strip()
+
+    key_secret = (
+        settings.get(
+            "razorpay_secret"
+        ) or ""
+    ).strip()
+
+    if not key_id or not key_secret:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Razorpay is not configured "
+                "for this vendor."
+            )
+        )
+
+    # --------------------------------------
+    # Verify Signature
+    # --------------------------------------
+
+    try:
+
+        client = razorpay.Client(
+            auth=(
+                key_id,
+                key_secret
+            )
+        )
+
+        client.utility.verify_payment_signature({
+            "razorpay_order_id":
+                razorpay_order_id,
+
+            "razorpay_payment_id":
+                data.razorpay_payment_id,
+
+            "razorpay_signature":
+                data.razorpay_signature
+        })
+
+    except Exception:
+
+        logger.exception(
+            "Razorpay signature verification failed"
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid Razorpay payment signature."
+        )
+
+    # --------------------------------------
+    # Fetch Payment From Razorpay
+    # --------------------------------------
+
+    try:
+
+        payment = client.payment.fetch(
+            data.razorpay_payment_id
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Unable to fetch Razorpay payment"
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Unable to verify payment status "
+                "with Razorpay."
+            )
+        )
+
+    # --------------------------------------
+    # Verify Order Association
+    # --------------------------------------
+
+    razorpay_payment_order_id = (
+        payment.get("order_id")
+    )
+
+    if (
+        razorpay_payment_order_id
+        != razorpay_order_id
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment does not belong "
+                "to this order."
+            )
+        )
+
+    # --------------------------------------
+    # Verify Amount
+    # --------------------------------------
+
+    expected_amount = int(
+        round(
+            float(
+                job["total_amount"] or 0
+            ) * 100
+        )
+    )
+
+    received_amount = int(
+        payment.get(
+            "amount",
+            0
+        )
+    )
+
+    if received_amount != expected_amount:
+
+        raise HTTPException(
+            status_code=400,
+            detail="Payment amount mismatch."
+        )
+
+    # --------------------------------------
+    # Verify Captured
+    # --------------------------------------
+
+    payment_status = (
+        payment.get("status")
+    )
+
+    if payment_status != "captured":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment is not captured. "
+                f"Current status: {payment_status}"
+            )
+        )
+
+    # --------------------------------------
+    # Save Payment
+    # --------------------------------------
+
+    save_razorpay_payment(
+        job_id,
+        data.razorpay_payment_id,
+        data.razorpay_signature
+    )
+
+    # --------------------------------------
+    # Assign Queue
+    # --------------------------------------
 
     try:
 
@@ -955,7 +1360,7 @@ def verify_payment(
             assign_queue_after_payment(
                 job["vendor_id"],
                 job_id,
-                payment_id.strip()
+                data.razorpay_payment_id
             )
         )
 
@@ -966,9 +1371,9 @@ def verify_payment(
             detail=str(error)
         )
 
-    # ----------------------------------
-    # Success
-    # ----------------------------------
+    # --------------------------------------
+    # Final Response
+    # --------------------------------------
 
     return {
 
@@ -978,7 +1383,10 @@ def verify_payment(
             job_id,
 
         "payment_id":
-            payment_id.strip(),
+            data.razorpay_payment_id,
+
+        "razorpay_order_id":
+            razorpay_order_id,
 
         "payment_status":
             "Paid",
@@ -995,10 +1403,9 @@ def verify_payment(
         "printer_status":
             "Waiting"
     }
-
-# ==========================================
+#=========================================
 # Payment Failed
-# ==========================================
+# =========================================
 
 @app.post("/payment/{job_id}/failed")
 def payment_failed(

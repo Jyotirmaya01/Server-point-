@@ -28,11 +28,9 @@ def get_connection():
 def initialize_database():
 
     connection = get_connection()
-
     cursor = connection.cursor()
 
     cursor.execute("""
-
         CREATE TABLE IF NOT EXISTS print_jobs (
 
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,19 +67,43 @@ def initialize_database():
 
             payment_id TEXT DEFAULT '',
 
+            razorpay_order_id TEXT DEFAULT '',
+
+            razorpay_signature TEXT DEFAULT '',
+
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-
         )
-
     """)
 
+    # --------------------------------------
+    # Database migration for existing DB
+    # --------------------------------------
+
+    cursor.execute(
+        "PRAGMA table_info(print_jobs)"
+    )
+
+    existing_columns = {
+        row["name"]
+        for row in cursor.fetchall()
+    }
+
+    if "razorpay_order_id" not in existing_columns:
+
+        cursor.execute("""
+            ALTER TABLE print_jobs
+            ADD COLUMN razorpay_order_id TEXT DEFAULT ''
+        """)
+
+    if "razorpay_signature" not in existing_columns:
+
+        cursor.execute("""
+            ALTER TABLE print_jobs
+            ADD COLUMN razorpay_signature TEXT DEFAULT ''
+        """)
+
     connection.commit()
-
     connection.close()
-
-# ==========================
-# Initialize Database
-# ==========================
 
 initialize_database()
 
@@ -519,6 +541,85 @@ def mark_payment_failed(
         "Failed"
     )
 
+# ==========================================
+# Razorpay Order
+# ==========================================
+
+def save_razorpay_order(
+    job_id,
+    razorpay_order_id
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE print_jobs
+        SET razorpay_order_id=?
+        WHERE job_id=?
+    """, (
+        razorpay_order_id,
+        job_id
+    ))
+
+    connection.commit()
+    connection.close()
+
+
+# ==========================================
+# Get Razorpay Order ID
+# ==========================================
+
+def get_razorpay_order_id(job_id):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT razorpay_order_id
+        FROM print_jobs
+        WHERE job_id=?
+    """, (job_id,))
+
+    row = cursor.fetchone()
+
+    connection.close()
+
+    if row is None:
+        return None
+
+    return row["razorpay_order_id"]
+
+
+# ==========================================
+# Save Razorpay Payment Verification
+# ==========================================
+
+def save_razorpay_payment(
+    job_id,
+    payment_id,
+    signature
+):
+
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        UPDATE print_jobs
+        SET
+            payment_id=?,
+            razorpay_signature=?,
+            payment_status='Paid',
+            printer_status='Waiting'
+        WHERE job_id=?
+    """, (
+        payment_id,
+        signature,
+        job_id
+    ))
+
+    connection.commit()
+    connection.close()
 # ==========================
 # Assign Queue After Payment
 # Transaction Safe
