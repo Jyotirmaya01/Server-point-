@@ -58,6 +58,7 @@ from database import (
     get_next_queue_number,
     mark_payment_pending,
     mark_payment_success,
+    mark_payment_failed,
     assign_queue_after_payment,
     start_printing,
     complete_printing,
@@ -870,36 +871,213 @@ def printer_status(
 
     }
 # ==========================================
-# Verify Payment
+# Verify / Confirm Payment
 # ==========================================
 
 @app.post("/payment/{job_id}")
-def verify_payment(job_id: str, payment_id: str):
-    job = get_print_job(job_id)
+def verify_payment(
+    job_id: str,
+    payment_id: str
+):
+
+    # ----------------------------------
+    # Get Job
+    # ----------------------------------
+
+    job = get_print_job(
+        job_id
+    )
 
     if not job:
+
         raise HTTPException(
             status_code=404,
-            detail="Job not found"
+            detail="Job not found."
         )
 
-    queue_number = assign_queue_after_payment(
-        job["vendor_id"],
-        job_id,
-        payment_id
+    # ----------------------------------
+    # Validate Payment ID
+    # ----------------------------------
+
+    if not payment_id or not payment_id.strip():
+
+        raise HTTPException(
+            status_code=400,
+            detail="Payment ID is required."
+        )
+
+    # ----------------------------------
+    # Already Paid
+    # ----------------------------------
+
+    if job["payment_status"] == "Paid":
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "payment_id":
+                job["payment_id"],
+            "payment_status": "Paid",
+            "queue_number":
+                job["queue_number"],
+            "estimated_wait_time":
+                max(
+                    0,
+                    (job["queue_number"] - 1) * 2
+                ),
+            "printer_status":
+                job["printer_status"],
+            "message":
+                "Payment was already completed."
+        }
+
+    # ----------------------------------
+    # Only Pending Can Become Paid
+    # ----------------------------------
+
+    if job["payment_status"] != "Pending":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment cannot be processed "
+                f"from '{job['payment_status']}' state."
+            )
+        )
+
+    # ----------------------------------
+    # Process Payment State
+    # ----------------------------------
+
+    try:
+
+        queue_number = (
+            assign_queue_after_payment(
+                job["vendor_id"],
+                job_id,
+                payment_id.strip()
+            )
+        )
+
+    except ValueError as error:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+
+    # ----------------------------------
+    # Success
+    # ----------------------------------
+
+    return {
+
+        "success": True,
+
+        "job_id":
+            job_id,
+
+        "payment_id":
+            payment_id.strip(),
+
+        "payment_status":
+            "Paid",
+
+        "queue_number":
+            queue_number,
+
+        "estimated_wait_time":
+            max(
+                0,
+                (queue_number - 1) * 2
+            ),
+
+        "printer_status":
+            "Waiting"
+    }
+
+# ==========================================
+# Payment Failed
+# ==========================================
+
+@app.post("/payment/{job_id}/failed")
+def payment_failed(
+    job_id: str
+):
+
+    job = get_print_job(
+        job_id
+    )
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+    # ----------------------------------
+    # Already Paid
+    # ----------------------------------
+
+    if job["payment_status"] == "Paid":
+
+        raise HTTPException(
+            status_code=400,
+            detail="Payment is already completed."
+        )
+
+    # ----------------------------------
+    # Already Failed
+    # ----------------------------------
+
+    if job["payment_status"] == "Failed":
+
+        return {
+            "success": True,
+            "job_id": job_id,
+            "payment_status": "Failed",
+            "message":
+                "Payment is already marked as failed."
+        }
+
+    # ----------------------------------
+    # Only Pending Can Fail
+    # ----------------------------------
+
+    if job["payment_status"] != "Pending":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment cannot be marked failed "
+                f"from '{job['payment_status']}' state."
+            )
+        )
+
+    mark_payment_failed(
+        job_id
     )
 
     return {
+
         "success": True,
-        "job_id": job_id,
-        "payment_id": payment_id,
-        "payment_status": "Paid",
-        "queue_number": queue_number,
-        "estimated_wait_time": (queue_number - 1) * 2,
-        "printer_status": "Waiting"
+
+        "job_id":
+            job_id,
+
+        "payment_status":
+            "Failed",
+
+        "queue_number":
+            0,
+
+        "printer_status":
+            "Pending Payment",
+
+        "message":
+            "Payment failed. No queue number assigned."
     }
-
-
 # ==========================================
 # Start Printing
 # ==========================================

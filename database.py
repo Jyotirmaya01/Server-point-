@@ -505,51 +505,182 @@ def mark_payment_success(
 
     )
 
+  # ==========================
+# Payment Failed
+# ==========================
+
+def mark_payment_failed(
+    job_id
+):
+
+    update_payment(
+        job_id,
+        "",
+        "Failed"
+    )
+
 # ==========================
 # Assign Queue After Payment
 # Transaction Safe
 # ==========================
 
-def assign_queue_after_payment(vendor_id, job_id, payment_id):
+# ==========================================
+# Assign Queue After Successful Payment
+# Transaction Safe
+# ==========================================
+
+def assign_queue_after_payment(
+    vendor_id,
+    job_id,
+    payment_id
+):
 
     connection = get_connection()
 
-    # Lock database for this transaction
-    connection.execute("BEGIN IMMEDIATE")
+    try:
 
-    cursor = connection.cursor()
+        # Lock database for this transaction
+        connection.execute(
+            "BEGIN IMMEDIATE"
+        )
 
-    cursor.execute("""
-        SELECT COALESCE(MAX(queue_number), 0)
-        FROM print_jobs
-        WHERE vendor_id = ?
-AND  payment_status='Paid'
-        AND printer_status!='Completed'
-    """, (vendor_id,))
+        cursor = connection.cursor()
 
-    queue_number = cursor.fetchone()[0] + 1
+        # ----------------------------------
+        # Get Job
+        # ----------------------------------
 
-    cursor.execute("""
-        UPDATE print_jobs
-        SET
-            payment_status='Paid',
-            payment_id=?,
-            printer_status='Waiting',
-            queue_number=?
-        WHERE job_id=?
-    """, (
-      payment_id,
-        queue_number,
-        job_id
-    ))
+        cursor.execute(
+            """
+            SELECT *
+            FROM print_jobs
+            WHERE job_id=?
+            """,
+            (job_id,)
+        )
 
-    connection.commit()
+        job = cursor.fetchone()
 
-    connection.close()
+        if job is None:
 
-    refresh_queue(vendor_id)
+            raise ValueError(
+                "Job not found."
+            )
 
-    return queue_number
+        # ----------------------------------
+        # Verify Vendor
+        # ----------------------------------
+
+        if job["vendor_id"] != vendor_id:
+
+            raise ValueError(
+                "Vendor mismatch."
+            )
+
+        # ----------------------------------
+        # Already Paid
+        # ----------------------------------
+
+        if job["payment_status"] == "Paid":
+
+            # Payment was already processed.
+            # Do NOT create another queue number.
+
+            existing_queue = (
+                job["queue_number"] or 0
+            )
+
+            connection.commit()
+            connection.close()
+
+            if existing_queue > 0:
+                return existing_queue
+
+            raise ValueError(
+                "Job is already paid but has no queue number."
+            )
+
+        # ----------------------------------
+        # Only Pending Jobs Can Be Paid
+        # ----------------------------------
+
+        if job["payment_status"] != "Pending":
+
+            raise ValueError(
+                f"Payment cannot be processed from "
+                f"'{job['payment_status']}' state."
+            )
+
+        # ----------------------------------
+        # Validate Payment ID
+        # ----------------------------------
+
+        if not payment_id:
+
+            raise ValueError(
+                "Payment ID is required."
+            )
+
+        # ----------------------------------
+        # Calculate Next Queue
+        # ----------------------------------
+
+        cursor.execute(
+            """
+            SELECT COALESCE(MAX(queue_number), 0)
+            FROM print_jobs
+            WHERE vendor_id=?
+            AND payment_status='Paid'
+            AND printer_status!='Completed'
+            """,
+            (vendor_id,)
+        )
+
+        queue_number = (
+            cursor.fetchone()[0] + 1
+        )
+
+        # ----------------------------------
+        # Mark Paid + Assign Queue
+        # ----------------------------------
+
+        cursor.execute(
+            """
+            UPDATE print_jobs
+            SET
+                payment_status='Paid',
+                payment_id=?,
+                printer_status='Waiting',
+                queue_number=?
+            WHERE job_id=?
+            """,
+            (
+                payment_id,
+                queue_number,
+                job_id
+            )
+        )
+
+        connection.commit()
+
+        connection.close()
+
+        # ----------------------------------
+        # Refresh Queue
+        # ----------------------------------
+
+        refresh_queue(
+            vendor_id
+        )
+
+        return queue_number
+
+    except Exception:
+
+        connection.rollback()
+        connection.close()
+
+        raise
 
 # refresh queue 
 
