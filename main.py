@@ -739,7 +739,7 @@ def update_existing_job(
         "total_pages": total_pages,
         "total_amount": total_amount,
         "queue_number": job["queue_number"],
-        "estimated_wait_time": (job["queue_number"] - 1) * 2,
+        "estimated_wait_time": max(0, (job["queue_number"] - 1) * 2)
         "printer_status": job["printer_status"]
     }
 
