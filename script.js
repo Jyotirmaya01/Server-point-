@@ -49,41 +49,71 @@ const ALLOWED_EXTENSIONS = [
 // is integrated. Its only job right now is to actually simulate a
 // payment step that can fail, so the error flow can be tested.
 // ==========================
+// ==========================
+// Razorpay Checkout
+// ==========================
 
-const MOCK_PAYMENT_FAIL_RATE = 0.2; // 20% of attempts simulate a decline
-
-function simulatePayment() {
+function loadRazorpayCheckout() {
 
     return new Promise(function (resolve, reject) {
 
-        setTimeout(function () {
+        if (window.Razorpay) {
+            resolve();
+            return;
+        }
 
-            const approved = Math.random() > MOCK_PAYMENT_FAIL_RATE;
+        const existing = document.querySelector(
+            'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+        );
 
-            if (approved) {
+        if (existing) {
 
-                resolve({
-                    payment_id:
-                        "MOCK_" + Date.now() +
-                        "_" + Math.floor(Math.random() * 10000)
-                });
+            existing.addEventListener(
+                "load",
+                resolve,
+                { once: true }
+            );
 
-            } else {
+            existing.addEventListener(
+                "error",
+                function () {
+                    reject(
+                        new Error(
+                            "Unable to load Razorpay Checkout."
+                        )
+                    );
+                },
+                { once: true }
+            );
 
-                const err = new Error(
-                    "Payment was declined by the bank. Please try again."
-                );
-                err.isPaymentError = true;
-                reject(err);
+            return;
+        }
 
-            }
+        const script =
+            document.createElement("script");
 
-        }, 1500); // simulated gateway delay
+        script.src =
+            "https://checkout.razorpay.com/v1/checkout.js";
+
+        script.async = true;
+
+        script.onload = resolve;
+
+        script.onerror = function () {
+
+            reject(
+                new Error(
+                    "Unable to load Razorpay Checkout."
+                )
+            );
+
+        };
+
+        document.head.appendChild(script);
 
     });
 
 }
-
 // ==========================================
 // STEP 7 - VENDOR MAINTENANCE CHECK
 // ==========================================
@@ -486,124 +516,459 @@ paperSize.addEventListener("change", function () { if (file) refreshOrder(); });
 orientation.addEventListener("change", saveOrder);
 pageRange.addEventListener("input", saveOrder);
 
-payBtn.addEventListener("click", async function () {
+payBtn.addEventListener(
+    "click",
+    async function () {
 
-    if (!currentJob) {
+        if (!currentJob) {
 
-        alert("Please upload a document and wait for the price to load first.");
+            alert(
+                "Please upload a document and wait for the price to load first."
+            );
 
-        return;
+            return;
+        }
 
-    }
+        payBtn.disabled = true;
 
-    payBtn.disabled = true;
-    const originalLabel = payBtn.textContent;
-
-    try {
-
-        // ------------------------------
-        // Mock Payment Step
-        // File is already uploaded and priced (see refreshOrder).
-        // Nothing is "successful" until payment clears. This can
-        // fail (see MOCK_PAYMENT_FAIL_RATE), and a failure here
-        // must go to error.html, not success.html.
-        // ------------------------------
-
-        payBtn.textContent = "Processing Payment...";
-
-        let payment;
+        const originalLabel =
+            payBtn.textContent;
 
         try {
 
-            payment = await simulatePayment();
+            payBtn.textContent =
+                "Opening Payment...";
 
-        } catch (paymentError) {
+            // --------------------------------------
+            // Load Razorpay Checkout
+            // --------------------------------------
 
-            // Reflect the decline on the backend so the job record
-            // isn't left saying "Pending" forever.
-            try {
+            await loadRazorpayCheckout();
 
+            // --------------------------------------
+            // Create Razorpay Order
+            // --------------------------------------
+
+            const orderResponse =
                 await fetch(
-                    API_URL + "/jobs/" + currentJob.job_id + "/payment/Failed",
-                    { method: "PUT" }
+                    API_URL +
+                    "/payment/create/" +
+                    encodeURIComponent(
+                        currentJob.job_id
+                    ),
+                    {
+                        method: "POST"
+                    }
                 );
 
-            } catch (markError) {
+            if (!orderResponse.ok) {
+
+                let detail =
+                    "Unable to create payment order.";
+
+                try {
+
+                    const body =
+                        await orderResponse.json();
+
+                    detail =
+                        body.detail ||
+                        detail;
+
+                } catch (e) {}
+
+                throw new Error(
+                    "Payment Setup Failed (" +
+                    orderResponse.status +
+                    "): " +
+                    detail
+                );
+            }
+
+            const order =
+                await orderResponse.json();
+
+            if (
+                !order.razorpay_order_id ||
+                !order.razorpay_key_id ||
+                !order.amount
+            ) {
+
+                throw new Error(
+                    "Invalid payment order received from server."
+                );
+            }
+
+            payBtn.textContent =
+                "Waiting for Payment...";
+
+            // --------------------------------------
+            // Open Razorpay Checkout
+            // --------------------------------------
+
+            const paymentResult =
+                await new Promise(
+                    function (resolve, reject) {
+
+                        let settled = false;
+
+                        function failPayment(
+                            message,
+                            isRealPaymentFailure
+                        ) {
+
+                            if (settled) return;
+
+                            settled = true;
+
+                            const error =
+                                new Error(
+                                    message
+                                );
+
+                            error.isPaymentError =
+                                Boolean(
+                                    isRealPaymentFailure
+                                );
+
+                            error.isPaymentCancelled =
+                                !isRealPaymentFailure;
+
+                            reject(error);
+                        }
+
+                        const options = {
+
+                            key:
+                                order.razorpay_key_id,
+
+                            amount:
+                                order.amount,
+
+                            currency:
+                                order.currency ||
+                                "INR",
+
+                            name:
+                                "ServePrint",
+
+                            description:
+                                "Document Printing",
+
+                            order_id:
+                                order.razorpay_order_id,
+
+                            handler:
+                                async function (
+                                    response
+                                ) {
+
+                                    if (settled) {
+                                        return;
+                                    }
+
+                                    try {
+
+                                        payBtn.textContent =
+                                            "Verifying Payment...";
+
+                                        const verifyResponse =
+                                            await fetch(
+                                                API_URL +
+                                                "/payment/verify/" +
+                                                encodeURIComponent(
+                                                    currentJob.job_id
+                                                ),
+                                                {
+                                                    method:
+                                                        "POST",
+
+                                                    headers: {
+                                                        "Content-Type":
+                                                            "application/json"
+                                                    },
+
+                                                    body:
+                                                        JSON.stringify({
+
+                                                            razorpay_payment_id:
+                                                                response.razorpay_payment_id,
+
+                                                            razorpay_signature:
+                                                                response.razorpay_signature
+
+                                                        })
+                                                }
+                                            );
+
+                                        if (
+                                            !verifyResponse.ok
+                                        ) {
+
+                                            let detail =
+                                                "Payment verification failed.";
+
+                                            try {
+
+                                                const body =
+                                                    await verifyResponse.json();
+
+                                                detail =
+                                                    body.detail ||
+                                                    detail;
+
+                                            } catch (e) {}
+
+                                            throw new Error(
+                                                detail
+                                            );
+                                        }
+
+                                        const verified =
+                                            await verifyResponse.json();
+
+                                        settled = true;
+
+                                        resolve({
+
+                                            ...response,
+
+                                            verification:
+                                                verified
+
+                                        });
+
+                                    } catch (error) {
+
+                                        if (settled) {
+                                            return;
+                                        }
+
+                                        settled = true;
+
+                                        error.isPaymentError =
+                                            true;
+
+                                        reject(error);
+                                    }
+
+                                },
+
+                            modal: {
+
+                                ondismiss:
+                                    function () {
+
+                                        failPayment(
+                                            "Payment window was closed.",
+                                            false
+                                        );
+
+                                    }
+
+                            },
+
+                            retry: {
+
+                                enabled: true
+
+                            }
+
+                        };
+
+                        const razorpay =
+                            new window.Razorpay(
+                                options
+                            );
+
+                        razorpay.on(
+                            "payment.failed",
+                            function (
+                                response
+                            ) {
+
+                                const message =
+                                    response &&
+                                    response.error &&
+                                    response.error.description
+                                        ? response.error.description
+                                        : "Payment was declined. Please try again.";
+
+                                failPayment(
+                                    message,
+                                    true
+                                );
+
+                            }
+                        );
+
+                        try {
+
+                            razorpay.open();
+
+                        } catch (error) {
+
+                            failPayment(
+                                error.message ||
+                                "Unable to open Razorpay Checkout.",
+                                false
+                            );
+
+                        }
+
+                    }
+                );
+
+            // --------------------------------------
+            // Payment Verified
+            // --------------------------------------
+
+            const verified =
+                paymentResult.verification;
+
+            currentJob.payment_id =
+                paymentResult.razorpay_payment_id;
+
+            currentJob.payment_status =
+                "Paid";
+
+            currentJob.queue_number =
+                verified.queue_number;
+
+            currentJob.estimated_wait_time =
+                verified.estimated_wait_time;
+
+            currentJob.printer_status =
+                verified.printer_status;
+
+            localStorage.setItem(
+                "serveprint_order",
+                JSON.stringify(
+                    currentJob
+                )
+            );
+
+            // --------------------------------------
+            // Update final print settings
+            // --------------------------------------
+
+            try {
+
+                await createPrintJob(
+                    currentJob.job_id
+                );
+
+            } catch (
+                printJobError
+            ) {
 
                 console.error(
-                    "Could not mark payment as failed on backend:",
-                    markError
+                    "Print job update failed:",
+                    printJobError
                 );
 
             }
 
-            throw paymentError;
+            // --------------------------------------
+            // Success
+            // --------------------------------------
+
+            window.location.href =
+                "success.html";
 
         }
 
-        // Payment approved - verify it on the backend.
-        await fetch(
-            API_URL + "/payment/" + currentJob.job_id +
-            "?payment_id=" + encodeURIComponent(payment.payment_id),
-            { method: "POST" }
-        );
+        catch (error) {
 
-        currentJob.payment_id = payment.payment_id;
-        currentJob.payment_status = "Paid";
+            console.error(
+                "Payment flow error:",
+                error
+            );
 
-        localStorage.setItem(
-            "serveprint_order",
-            JSON.stringify(currentJob)
-        );
+            // --------------------------------------
+            // Only mark Failed when Razorpay
+            // reports an actual payment failure.
+            // Closing Checkout keeps it Pending.
+            // --------------------------------------
 
-        // Print job creation (copies/orientation/paper size) is a
-        // secondary step. If it fails, we still keep the user on the
-        // success flow since upload + payment already succeeded.
-        try {
+            if (
+                error.isPaymentError
+            ) {
 
-            await createPrintJob(currentJob.job_id);
+                try {
 
-        } catch (printJobError) {
+                    await fetch(
+                        API_URL +
+                        "/payment/" +
+                        encodeURIComponent(
+                            currentJob.job_id
+                        ) +
+                        "/failed",
+                        {
+                            method:
+                                "POST"
+                        }
+                    );
 
-            console.error("Print job update failed:", printJobError);
+                } catch (
+                    markError
+                ) {
+
+                    console.error(
+                        "Could not mark payment as failed:",
+                        markError
+                    );
+
+                }
+
+            }
+
+            localStorage.setItem(
+                "serveprint_error",
+                JSON.stringify({
+
+                    title:
+                        error.isPaymentError
+                            ? "Payment Failed"
+                            : (
+                                error.isPaymentCancelled
+                                    ? "Payment Cancelled"
+                                    : "Payment Error"
+                            ),
+
+                    message:
+                        error.message ||
+                        "Unable to complete payment.",
+
+                    code:
+                        error.isPaymentError
+                            ? "ERR_PAYMENT_DECLINED"
+                            : (
+                                error.isPaymentCancelled
+                                    ? "ERR_PAYMENT_CANCELLED"
+                                    : "ERR_PAYMENT"
+                            )
+
+                })
+            );
+
+            window.location.href =
+                "error.html";
 
         }
 
-        window.location.href = "success.html";
+        finally {
+
+            payBtn.disabled =
+                false;
+
+            payBtn.textContent =
+                originalLabel;
+
+        }
 
     }
-
-    catch (error) {
-
-        console.error(error);
-
-        // Save the real failure reason so error.html can show it
-        // instead of a generic "Unknown Error".
-        localStorage.setItem(
-            "serveprint_error",
-            JSON.stringify({
-                title: error.isPaymentError
-                    ? "Payment Failed"
-                    : "Error",
-                message: error.message || "Network or server error.",
-                code: error.isPaymentError
-                    ? "ERR_PAYMENT_DECLINED"
-                    : (navigator.onLine ? "ERR_REQUEST" : "ERR_OFFLINE")
-            })
-        );
-
-        window.location.href = "error.html";
-
-    }
-
-    finally {
-
-        payBtn.disabled = false;
-        payBtn.textContent = originalLabel;
-
-    }
-
-});
+);
 
 function animateProgress(start, end) {
 
@@ -907,7 +1272,7 @@ window.debugOrder = debugOrder;
 
 
 // Version
-const APP_VERSION = "1.0.0";
+const APP_VERSION = "1.1.0";
 
 console.log("ServePrint Version :", APP_VERSION);
 

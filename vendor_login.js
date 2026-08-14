@@ -209,23 +209,14 @@ togglePassword.addEventListener(
 
 function saveVendorSession(data){
 
-    const session={
-
-        vendor_id:data.vendor_id,
-
-        shop_name:data.shop_name,
-
-        owner_name:data.owner_name,
-
-        email:data.email ||
-
-        email.value.trim(),
-
-        login_time:
-
-        new Date().toISOString()
-
-    };
+    const session = {
+    vendor_id: data.vendor_id,
+    shop_name: data.shop_name,
+    owner_name: data.owner_name,
+    email: data.email || email.value.trim(),
+    token: data.token || null,
+    login_time: new Date().toISOString()
+};
 
     localStorage.setItem(
 

@@ -509,7 +509,31 @@ async def upload_file(
             status_code=503,
             detail="This shop is currently under maintenance. Please try again later."
         )
+# ==========================================
+# Accept Orders Protection
+# ==========================================
 
+settings = get_vendor_settings(vendor_id)
+
+if settings is not None:
+
+    accept_orders = bool(
+        settings.get(
+            "accept_orders",
+            True
+        )
+    )
+
+    if not accept_orders:
+
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "This shop is currently not "
+                "accepting new orders."
+            )
+        )
+      
     # Validate Copies
     if copies < 1:
         raise HTTPException(
