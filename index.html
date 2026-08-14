@@ -8,6 +8,27 @@
     <link rel="stylesheet" href="style.css">  
 </head>  
 <body>  
+<script>
+(function () {
+
+    const params =
+        new URLSearchParams(
+            window.location.search
+        );
+
+    const vendorId =
+        params.get("vendor_id");
+
+    if (!vendorId) {
+
+        window.location.replace(
+            "vendor_signup.html"
+        );
+
+    }
+
+})();
+</script>
 <div class="container">  
     <div class="logo">  
         🖨️  
