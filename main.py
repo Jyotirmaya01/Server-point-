@@ -482,6 +482,9 @@ def status():
 # ==========================================
 # Upload API
 # ==========================================
+# ==========================================
+# Upload API
+# ==========================================
 
 @app.post("/upload")
 async def upload_file(
@@ -492,7 +495,10 @@ async def upload_file(
     paper_size: str = Form("A4"),
     page_range: str = Form("All")
 ):
+    # ------------------------------------------
     # Validate Vendor
+    # ------------------------------------------
+
     vendor = get_vendor_by_id(vendor_id)
 
     if vendor is None:
@@ -501,7 +507,10 @@ async def upload_file(
             detail="Vendor not found."
         )
 
+    # ------------------------------------------
     # Maintenance Protection
+    # ------------------------------------------
+
     maintenance = get_vendor_maintenance(vendor_id)
 
     if maintenance:
@@ -509,32 +518,34 @@ async def upload_file(
             status_code=503,
             detail="This shop is currently under maintenance. Please try again later."
         )
-# ==========================================
-# Accept Orders Protection
-# ==========================================
 
-settings = get_vendor_settings(vendor_id)
+    # ------------------------------------------
+    # Accept Orders Protection
+    # ------------------------------------------
 
-if settings is not None:
+    settings = get_vendor_settings(vendor_id)
 
-    accept_orders = bool(
-        settings.get(
-            "accept_orders",
-            True
-        )
-    )
-
-    if not accept_orders:
-
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "This shop is currently not "
-                "accepting new orders."
+    if settings is not None:
+        accept_orders = bool(
+            settings.get(
+                "accept_orders",
+                True
             )
         )
-      
+
+        if not accept_orders:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "This shop is currently not "
+                    "accepting new orders."
+                )
+            )
+
+    # ------------------------------------------
     # Validate Copies
+    # ------------------------------------------
+
     if copies < 1:
         raise HTTPException(
             status_code=400,
@@ -547,7 +558,10 @@ if settings is not None:
             detail="Maximum 100 copies allowed."
         )
 
+    # ------------------------------------------
     # Validate Page Range
+    # ------------------------------------------
+
     page_range = page_range.strip()
 
     if page_range == "":
@@ -565,7 +579,10 @@ if settings is not None:
                 detail="Invalid page range."
             )
 
+    # ------------------------------------------
     # Validate Extension
+    # ------------------------------------------
+
     extension = Path(file.filename).suffix.lower()
 
     if extension not in ALLOWED_EXTENSIONS:
@@ -574,66 +591,105 @@ if settings is not None:
             detail="Unsupported file type."
         )
 
+    # ------------------------------------------
     # Block Videos
+    # ------------------------------------------
+
     if file.content_type and file.content_type.startswith("video/"):
         raise HTTPException(
             status_code=400,
             detail="Video files are not allowed."
         )
 
+    # ------------------------------------------
     # Validate MIME Type
+    # ------------------------------------------
+
     if file.content_type not in ALLOWED_MIME_TYPES:
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported MIME type: {file.content_type}"
         )
 
+    # ------------------------------------------
     # Validate Print Type
+    # ------------------------------------------
+
     if print_type not in ["bw", "color"]:
         raise HTTPException(
             status_code=400,
             detail="Invalid print type."
         )
 
+    # ------------------------------------------
     # Generate Job
+    # ------------------------------------------
+
     job_id = str(uuid.uuid4())
+
     filename = f"{job_id}{extension}"
+
     filepath = UPLOAD_FOLDER / filename
 
+    # ------------------------------------------
     # Save File
+    # ------------------------------------------
+
     with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        shutil.copyfileobj(
+            file.file,
+            buffer
+        )
 
     file_size = filepath.stat().st_size
 
+    # ------------------------------------------
     # Validate File Size
+    # ------------------------------------------
+
     if file_size > MAX_FILE_SIZE:
         filepath.unlink()
+
         raise HTTPException(
             status_code=400,
             detail="Maximum file size is 20 MB."
         )
 
-    # Count Pages without blocking FastAPI
+    # ------------------------------------------
+    # Count Pages
+    # ------------------------------------------
+
     total_pages = await run_in_threadpool(
         count_pages,
         filepath
     )
 
-    logger.info(f"Detected Pages: {total_pages}")
+    logger.info(
+        f"Detected Pages: {total_pages}"
+    )
 
-    # Job has not been paid yet, so it is not in the queue.
+    # ------------------------------------------
+    # Job is not paid yet
+    # Therefore it is NOT in queue
+    # ------------------------------------------
+
     queue_number = 0
     waiting_time = 0
 
+    # ------------------------------------------
     # Calculate Price
+    # ------------------------------------------
+
     total_amount = calculate_price(
         pages=total_pages,
         copies=copies,
         print_type=print_type
     )
 
+    # ------------------------------------------
     # Save Database
+    # ------------------------------------------
+
     save_print_job(
         vendor_id=vendor_id,
         job_id=job_id,
@@ -645,7 +701,10 @@ if settings is not None:
         total_amount=total_amount
     )
 
+    # ------------------------------------------
     # Update Job Details
+    # ------------------------------------------
+
     update_job_details(
         job_id,
         total_pages,
@@ -656,10 +715,16 @@ if settings is not None:
         paper_size
     )
 
+    # ------------------------------------------
     # Payment Pending
+    # ------------------------------------------
+
     mark_payment_pending(job_id)
 
+    # ------------------------------------------
     # Response
+    # ------------------------------------------
+
     return {
         "success": True,
         "job_id": job_id,
@@ -683,7 +748,6 @@ if settings is not None:
 # ==========================================
 # Create Print Job API
 # ==========================================
-
 class PrintJobRequest(BaseModel):
     job_id: str
     copies: int
