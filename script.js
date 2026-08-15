@@ -118,8 +118,52 @@ function loadRazorpayCheckout() {
 // STEP 7 - VENDOR MAINTENANCE CHECK
 // ==========================================
 
+// ==========================================
+// SERVEPRINT VENDOR SESSION
+// ==========================================
+
+const urlParams =
+    new URLSearchParams(window.location.search);
+
+const URL_VENDOR_ID =
+    urlParams.get("vendor_id");
+
+const SAVED_VENDOR_ID =
+    sessionStorage.getItem("serveprint_vendor_id");
+
+// QR scan gives us the vendor ID.
+// Save it internally for this customer session.
+if (URL_VENDOR_ID) {
+    sessionStorage.setItem(
+        "serveprint_vendor_id",
+        URL_VENDOR_ID
+    );
+}
+
+// Always use the QR vendor first,
+// otherwise use the saved session vendor.
 const CURRENT_VENDOR_ID =
-    new URLSearchParams(window.location.search).get("vendor_id");
+    URL_VENDOR_ID ||
+    SAVED_VENDOR_ID ||
+    null;
+
+// Remove vendor_id from the visible URL
+// after saving it internally.
+if (URL_VENDOR_ID) {
+    const cleanURL =
+        window.location.origin +
+        window.location.pathname;
+
+    window.history.replaceState(
+        {},
+        document.title,
+        cleanURL
+    );
+}
+
+console.log(
+    "ServePrint vendor session initialized."
+);
 
 async function checkVendorMaintenance() {
 
@@ -156,6 +200,66 @@ async function checkVendorMaintenance() {
 
         console.log("Vendor status:", data);
 
+
+// ==========================================
+// CHECK VENDOR BEFORE UPLOAD
+// ==========================================
+
+async function verifyVendorBeforeUpload() {
+
+    const vendorId =
+        sessionStorage.getItem(
+            "serveprint_vendor_id"
+        );
+
+    if (!vendorId) {
+        throw new Error(
+            "Print shop session expired. Please scan the QR code again."
+        );
+    }
+
+    const response =
+        await fetch(
+            API_URL +
+            "/vendor/" +
+            encodeURIComponent(vendorId) +
+            "/status",
+            {
+                method: "GET",
+                cache: "no-store"
+            }
+        );
+
+    if (!response.ok) {
+        throw new Error(
+            "Unable to verify shop status. Please try again."
+        );
+    }
+
+    const data =
+        await response.json();
+
+    // Shop entered maintenance while
+    // customer was already on the page.
+    if (Boolean(data.maintenance)) {
+
+        window.location.replace(
+            "maintenance.html"
+        );
+
+        return false;
+    }
+
+    // Shop stopped accepting orders.
+    if (data.accept_orders === false) {
+
+        throw new Error(
+            "This shop is currently not accepting new orders."
+        );
+    }
+
+    return true;
+}
         // ==========================================
         // VENDOR IS IN MAINTENANCE
         // ==========================================
@@ -163,9 +267,8 @@ async function checkVendorMaintenance() {
         if (Boolean(data.maintenance)) {
 
             window.location.replace(
-                "maintenance.html?vendor_id=" +
-                encodeURIComponent(CURRENT_VENDOR_ID)
-            );
+    "maintenance.html"
+);
 
             return false;
         }
@@ -1292,18 +1395,35 @@ async function uploadDocument() {
 
     }
 
+  // Always verify the shop status immediately
+// before sending the file.
+const canUpload =
+    await verifyVendorBeforeUpload();
+
+if (!canUpload) {
+    return null;
+}
+
     const formData = new FormData();
 
   // Vendor ID from QR / URL
-    const vendorId = new URLSearchParams(window.location.search).get("vendor_id");
+    // Vendor ID is stored internally in the customer session.
+// It is intentionally NOT read from the visible URL.
+const vendorId =
+    sessionStorage.getItem(
+        "serveprint_vendor_id"
+    );
 
-  console.log("Vendor ID:", vendorId);
-    
-    if (!vendorId) {
-        throw new Error("Vendor ID not found.");
-    }
-    
-    formData.append("vendor_id", vendorId);
+if (!vendorId) {
+    throw new Error(
+        "This print shop session has expired. Please scan the shop QR code again."
+    );
+}
+
+formData.append(
+    "vendor_id",
+    vendorId
+);
 
     formData.append("file", file);
 

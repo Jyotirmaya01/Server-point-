@@ -1272,3 +1272,107 @@ Responsive
     }
 
 }
+
+/* =========================================================
+   SERVEPRINT DASHBOARD NAVIGATION + UI POLISH
+   ========================================================= */
+
+.dashboard-hidden {
+    display: none !important;
+}
+
+.main-content > section {
+    scroll-margin-top: 25px;
+}
+
+.sidebar li {
+    user-select: none;
+}
+
+.sidebar li.active {
+    transform: translateX(3px);
+}
+
+.sidebar li:active {
+    transform: scale(0.98);
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.section-header h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.table-section,
+.queue-section,
+.analytics-section,
+.shop-status,
+.qr-section,
+.settings-section,
+.activity-section {
+    margin-bottom: 30px;
+}
+
+.card,
+.chart-card,
+.queue-card,
+.status-card,
+.setting-card {
+    transition:
+        transform .2s ease,
+        box-shadow .2s ease,
+        border-color .2s ease;
+}
+
+.card:hover,
+.chart-card:hover,
+.queue-card:hover,
+.status-card:hover,
+.setting-card:hover {
+    transform: translateY(-2px);
+}
+
+.status-card {
+    min-height: 150px;
+}
+
+.qr-section,
+.settings-section,
+.analytics-section,
+.shop-status,
+.queue-section,
+.table-section {
+    background: transparent;
+}
+
+.sidebar li {
+    position: relative;
+}
+
+.sidebar li.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 4px;
+    background: #ffffff;
+}
+
+@media (max-width: 768px) {
+
+    .section-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+}

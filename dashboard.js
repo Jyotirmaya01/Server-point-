@@ -179,7 +179,7 @@ const maintenanceToggle =
     document.getElementById(
         "maintenanceToggle"
     );
-
+let maintenanceUpdating = false;
 
 /* ---------- Accept Orders ---------- */
 
@@ -774,24 +774,29 @@ async function loadVendorSettings() {
 
         /* ---------- Maintenance ---------- */
 
-        if (maintenanceToggle) {
+        if (
+    maintenanceToggle &&
+    !maintenanceUpdating
+) {
 
-            maintenanceToggle.checked =
-                Boolean(
-                    settings.maintenance
-                );
+    maintenanceToggle.checked =
+        Boolean(
+            settings.maintenance
+        );
         }
 
 
         /* ---------- Accept Orders ---------- */
 
-        if (ordersToggle) {
+        if (
+    ordersToggle &&
+    !ordersUpdating
+) {
 
-            ordersToggle.checked =
-                settings.accept_orders !==
-                false;
+    ordersToggle.checked =
+        settings.accept_orders !==
+        false;
         }
-
 
         /* ---------- Printer ---------- */
 
@@ -1262,6 +1267,10 @@ if (maintenanceToggle) {
             const enabled =
                 this.checked;
 
+          maintenanceUpdating = true;
+this.disabled = true;
+            
+
 
             try {
 
@@ -1297,37 +1306,36 @@ if (maintenanceToggle) {
                 );
 
 
-            } catch (error) {
+                    } catch (error) {
 
-                console.error(
-                    "Maintenance error:",
-                    error
-                );
+            console.error(
+                "Maintenance error:",
+                error
+            );
 
+            this.checked =
+                !enabled;
 
-                /*
-                 Revert switch if
-                 backend update fails.
-                */
+            showToast(
+                error.message ||
+                "Unable to update maintenance mode.",
+                "error"
+            );
 
-                this.checked =
-                    !enabled;
+        } finally {
 
-
-                showToast(
-                    error.message ||
-                    "Unable to update maintenance mode.",
-                    "error"
-                );
+            maintenanceUpdating = false;
+            this.disabled = false;
             }
         }
     );
 }
 
-
 /* =========================================================
    22. ACCEPT NEW ORDERS
    ========================================================= */
+
+let ordersUpdating = false;
 
 if (ordersToggle) {
 
@@ -1335,106 +1343,57 @@ if (ordersToggle) {
         "change",
         async function () {
 
+            if (ordersUpdating) {
+                return;
+            }
+
             const enabled =
                 this.checked;
 
+            ordersUpdating = true;
+            this.disabled = true;
 
             try {
 
-                /*
-                 The existing backend settings
-                 endpoint expects the complete
-                 VendorSettingsUpdate object.
-
-                 Therefore we first load the
-                 current settings and then update
-                 only accept_orders.
-                */
-
                 const response =
                     await apiRequest(
-                        `/vendor/${vendorId}/settings`
+                        `/vendor/${vendorId}/accept-orders` +
+                        `?enabled=${enabled}`,
+                        {
+                            method: "POST"
+                        }
                     );
 
-                const current =
+                if (!response.ok) {
+
+                    let message =
+                        "Unable to update order status.";
+
+                    try {
+                        const errorData =
+                            await response.json();
+
+                        message =
+                            errorData.detail ||
+                            errorData.message ||
+                            message;
+
+                    } catch (e) {}
+
+                    throw new Error(message);
+                }
+
+                const data =
                     await response.json();
 
-
-                const payload = {
-
-                    shop_name:
-                        current.shop_name ||
-                        vendorSession.shop_name ||
-                        "",
-
-                    owner_name:
-                        current.owner_name ||
-                        vendorSession.owner_name ||
-                        "",
-
-                    phone:
-                        current.phone ||
-                        "",
-
-                    address:
-                        current.address ||
-                        "",
-
-                    maintenance:
-                        Boolean(
-                            current.maintenance
-                        ),
-
-                    accept_orders:
-                        enabled,
-
-                    razorpay_key:
-                        current.razorpay_key ||
-                        "",
-
-                    razorpay_secret:
-                        current.razorpay_secret ||
-                        "",
-
-                    google_sheet_id:
-                        current.google_sheet_id ||
-                        "",
-
-                    service_email:
-                        current.service_email ||
-                        "",
-
-                    smtp_host:
-                        current.smtp_host ||
-                        "",
-
-                    smtp_port:
-                        Number(
-                            current.smtp_port ||
-                            587
-                        ),
-
-                    smtp_email:
-                        current.smtp_email ||
-                        "",
-
-                    smtp_password:
-                        current.smtp_password ||
-                        ""
-                };
-
-
-                await apiRequest(
-                    `/vendor/${vendorId}/settings`,
-                    {
-                        method: "PUT",
-                        body:
-                            JSON.stringify(
-                                payload
-                            )
-                    }
-                );
-
+                if (
+                    data.success !== true
+                ) {
+                    throw new Error(
+                        data.message ||
+                        "Unable to update order status."
+                    );
+                }
 
                 showToast(
                     enabled
@@ -1443,7 +1402,6 @@ if (ordersToggle) {
                     "success"
                 );
 
-
             } catch (error) {
 
                 console.error(
@@ -1451,22 +1409,24 @@ if (ordersToggle) {
                     error
                 );
 
-
                 this.checked =
                     !enabled;
-
 
                 showToast(
                     error.message ||
                     "Unable to update order settings.",
                     "error"
                 );
+
+            } finally {
+
+                ordersUpdating = false;
+                this.disabled = false;
             }
         }
     );
 }
-
-
+                  
 /* =========================================================
    23. SAVE VENDOR SETTINGS
    ========================================================= */
@@ -1624,9 +1584,13 @@ if (saveSettingsBtn) {
    24. REFRESH DASHBOARD
    ========================================================= */
 
-async function refreshDashboard() {
+async function refreshDashboard(
+    showLoading = true
+) {
 
-    showLoader();
+    if (showLoading) {
+        showLoader();
+    }
 
 
     try {
@@ -1656,9 +1620,10 @@ async function refreshDashboard() {
 
     } finally {
 
+    if (showLoading) {
         hideLoader();
     }
-}
+    }
 
 /* =========================================================
    25. REFRESH BUTTON
@@ -1781,6 +1746,201 @@ if (
    ========================================================= */
 
 setInterval(
-    refreshDashboard,
+    function () {
+        refreshDashboard(false);
+    },
     30000
+);
+
+/* =========================================================
+   23. SIDEBAR NAVIGATION
+   ========================================================= */
+
+const sidebarItems =
+    document.querySelectorAll(
+        ".sidebar nav li"
+    );
+
+const dashboardSections = {
+
+    "Dashboard": [
+        ".dashboard-cards",
+        ".quick-actions",
+        ".table-section",
+        ".queue-section",
+        ".analytics-section",
+        ".shop-status",
+        ".qr-section",
+        ".settings-section",
+        ".activity-section"
+    ],
+
+    "Orders": [
+        ".table-section"
+    ],
+
+    "Queue": [
+        ".queue-section"
+    ],
+
+    "QR Code": [
+        ".qr-section"
+    ],
+
+    "Analytics": [
+        ".analytics-section"
+    ],
+
+    "Settings": [
+        ".settings-section"
+    ],
+
+    "Maintenance": [
+        ".shop-status"
+    ],
+
+    "Customers": [],
+    "Payments": []
+};
+
+
+function showDashboardSection(
+    sectionName
+) {
+
+    const selectors =
+        dashboardSections[
+            sectionName
+        ];
+
+    if (!selectors) {
+        return;
+    }
+
+    // Hide individual sections
+    // except the Dashboard overview.
+    const allSections =
+        document.querySelectorAll(
+            ".main-content > section"
+        );
+
+    allSections.forEach(
+        function (section) {
+
+            section.classList.add(
+                "dashboard-hidden"
+            );
+
+        }
+    );
+
+    // Dashboard = show everything
+    if (
+        sectionName ===
+        "Dashboard"
+    ) {
+
+        allSections.forEach(
+            function (section) {
+
+                section.classList.remove(
+                    "dashboard-hidden"
+                );
+
+            }
+        );
+
+        window.scrollTo({
+            top: 0,
+            behavior: "smooth"
+        });
+
+        return;
+    }
+
+    selectors.forEach(
+        function (selector) {
+
+            document
+                .querySelectorAll(
+                    selector
+                )
+                .forEach(
+                    function (section) {
+
+                        section.classList.remove(
+                            "dashboard-hidden"
+                        );
+
+                    }
+                );
+
+        }
+    );
+
+    const firstSection =
+        document.querySelector(
+            selectors[0]
+        );
+
+    if (firstSection) {
+
+        firstSection.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+
+    }
+}
+
+
+sidebarItems.forEach(
+    function (item) {
+
+        item.addEventListener(
+            "click",
+            function () {
+
+                const label =
+                    this.textContent
+                        .trim();
+
+                sidebarItems.forEach(
+                    function (navItem) {
+
+                        navItem.classList.remove(
+                            "active"
+                        );
+
+                    }
+                );
+
+                this.classList.add(
+                    "active"
+                );
+
+                if (
+                    label ===
+                    "Customers" ||
+                    label ===
+                    "Payments"
+                ) {
+
+                    showToast(
+                        label +
+                        " section is coming soon.",
+                        "info"
+                    );
+
+                    return;
+                }
+
+                showDashboardSection(
+                    label
+                );
+
+            }
+        );
+
+    }
 );

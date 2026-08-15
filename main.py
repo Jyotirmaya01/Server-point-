@@ -45,6 +45,7 @@ from vendor_database import (
     get_vendor_settings,
     update_vendor_settings,
     update_vendor_maintenance,
+    update_vendor_accept_orders,
     get_vendor_maintenance,
 )
 
@@ -1834,6 +1835,42 @@ def set_vendor_maintenance(
         "maintenance": enabled
     }
 
+# ==========================================
+# Vendor Accept Orders API
+# ==========================================
+
+@app.post("/vendor/{vendor_id}/accept-orders")
+def set_vendor_accept_orders(
+    vendor_id: str,
+    enabled: bool
+):
+
+    vendor = get_vendor_by_id(
+        vendor_id
+    )
+
+    if vendor is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found."
+        )
+
+    success = update_vendor_accept_orders(
+        vendor_id,
+        enabled
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor settings not found."
+        )
+
+    return {
+        "success": True,
+        "vendor_id": vendor_id,
+        "accept_orders": enabled
+    }
 # ==========================================
 # Public Vendor Status API
 # ==========================================
