@@ -481,17 +481,14 @@ signupForm.addEventListener("submit", async function(e){
     result.vendor_id || "SP-UNKNOWN"
 );
 
-    catch(error){
+} catch(error){
 
-        console.error(error);
+    console.error(error);
+    stopLoading();
 
-        stopLoading();
-
-        showError(
-
-            "Unable to connect to the server. Please try again."
-
-        );
+    showError(
+        "Unable to connect to the server. Please try again."
+    );
 
     }
 

@@ -158,7 +158,6 @@ def get_authenticated_vendor(
 # ==========================================
 
 class VendorSignup(BaseModel):
-
     shop_name: str
     owner_name: str
     email: str
@@ -166,6 +165,29 @@ class VendorSignup(BaseModel):
     phone: str = ""
     address: str = ""
 
+
+@router.post("/signup")
+def vendor_signup(data: VendorSignup):
+
+    # Hash password before storing it
+    password_hash = hash_password(
+        data.password
+    )
+
+    vendor_id = register_vendor(
+        shop_name=data.shop_name,
+        owner_name=data.owner_name,
+        email=data.email,
+        password_hash=password_hash,
+        phone=data.phone,
+        address=data.address
+    )
+
+    return {
+        "success": True,
+        "vendor_id": vendor_id,
+        "message": "Vendor Registered Successfully"
+    }
 
 # ==========================================
 # Vendor Login
@@ -176,32 +198,6 @@ class VendorLogin(BaseModel):
     email: str
     password: str
 
-
-# ==========================================
-# Signup
-# ==========================================
-
-@router.post("/signup")
-def vendor_signup(data: VendorSignup):
-
-    vendor_id = register_vendor(
-
-        shop_name=data.shop_name,
-        owner_name=data.owner_name,
-        email=data.email,
-        password_hash=hash_password(data.password),
-        phone=data.phone,
-        address=data.address
-
-    )
-
-    return {
-
-        "success": True,
-        "vendor_id": vendor_id,
-        "message": "Vendor Registered Successfully"
-
-    }
 
 
 # ==========================================
