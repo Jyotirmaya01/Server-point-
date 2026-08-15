@@ -32,9 +32,9 @@ const homeBtn =
 // =====================================================
 
 const vendorId =
-    new URLSearchParams(
-        window.location.search
-    ).get("vendor_id");
+    sessionStorage.getItem(
+        "serveprint_vendor_id"
+    );
 
 
 // =====================================================
@@ -133,11 +133,8 @@ async function checkVendorStatus() {
              */
 
             window.location.replace(
-
-                "index.html?vendor_id=" +
-                encodeURIComponent(vendorId)
-
-            );
+    "index.html"
+);
 
             return;
         }

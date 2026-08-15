@@ -420,3 +420,41 @@ def update_vendor_settings(vendor_id, data):
     finally:
 
         connection.close()
+
+# ==========================================
+# Update Accept Orders
+# ==========================================
+
+def update_vendor_accept_orders(
+    vendor_id,
+    accept_orders
+):
+    connection = get_connection()
+    cursor = connection.cursor()
+
+    try:
+
+        cursor.execute("""
+            UPDATE vendor_settings
+            SET accept_orders = ?
+            WHERE vendor_id = ?
+        """, (
+            int(bool(accept_orders)),
+            vendor_id
+        ))
+
+        if cursor.rowcount == 0:
+            return False
+
+        connection.commit()
+
+        return True
+
+    except Exception:
+
+        connection.rollback()
+        raise
+
+    finally:
+
+        connection.close()
