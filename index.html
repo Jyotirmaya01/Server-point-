@@ -1,331 +1,250 @@
 <!DOCTYPE html>
-<html lang="en">
-
-<head>
 
-    <meta charset="UTF-8">
+<html lang="en">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>ServePrint</title>  
+    <link rel="stylesheet" href="style.css">  
+</head>  
+<body>  
+<script>
+(function () {
+
+    const params =
+        new URLSearchParams(
+            window.location.search
+        );
+
+    // A vendor_id can come from the QR code link (URL param)
+    // or, for a returning customer in the same browser tab,
+    // from the session that script.js already saved.
+    // Previously this only checked the URL param, so a
+    // returning customer whose vendor_id had already been
+    // cleaned out of the URL was wrongly sent to the vendor
+    // signup page.
+    const vendorId =
+        params.get("vendor_id") ||
+        sessionStorage.getItem("serveprint_vendor_id");
+
+    if (!vendorId) {
+
+        window.location.replace(
+            "vendor_signup.html"
+        );
+
+    }
+
+})();
+</script>
+<div class="container">  
+    <div class="logo">  
+        🖨️  
+    </div>  
+    <h1>ServePrint</h1>  
+    <p class="subtitle">  
+        Fast • Secure • Self-Service Printing</p>  <!-- Upload Card -->  
+<div class="card">  
+
+    <h2>Upload Document</h2>  
+
+    <label for="printFile" class="upload-box">  
+
+        <div id="uploadIcon">  
+            📂  
+        </div>  
+
+        <h3 id="uploadTitle">  
+            Click to Upload  
+        </h3>  
+
+        <p id="uploadText">  
+            Select your document  
+        </p>  
+
+        <small>  
+            PDF, JPG, PNG, DOCX, PPTX, XLSX, TXT  
+        </small>  
+
+    </label>  
+
+    <input  
+        type="file"  
+        id="printFile"  
+        hidden  
+        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"  
+    >  
+
+</div>  
+
+<!-- Print Settings -->  
+<div class="card">
+
+<br><br>
+<h2>Print Settings</h2><br>
+
+<label>Print Type</label>  
+  <br>  
+    <div class="radio-group">  
+
+        <label>  
+            <input  
+                type="radio"  
+                name="printType"  
+                value="bw"  
+                checked  
+            >  
+            Black & White (₹2/page)  
+        </label><br>  
+
+        <label>  
+            <input  
+                type="radio"  
+                name="printType"  
+                value="color"  
+            >  
+            Colour (₹10/page)  
+        </label>  
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    </div>  
 
-    <title>
-        ServePrint
-    </title>
+    <label for="paperSize">  
+        Paper Size  
+    </label>  
 
-    <link
-        rel="stylesheet"
-        href="style.css"
-    >
+    <select id="paperSize">  
+
+        <option>A4</option>  
 
-</head>
-
-
-<body>
-
-    <main class="container">
-
-        <section class="upload-section">
-
-            <h1>
-                Upload Your Document
-            </h1>
-
-            <p>
-                Select a document to calculate
-                your printing price.
-            </p>
-
-
-            <label
-                for="printFile"
-                class="upload-box"
-            >
-
-                <input
-                    type="file"
-                    id="printFile"
-                    hidden
-                    accept="
-                        .pdf,
-                        .jpg,
-                        .jpeg,
-                        .png,
-                        .gif,
-                        .webp,
-                        .bmp,
-                        .tif,
-                        .tiff,
-                        .heic,
-                        .heif,
-                        .docx,
-                        .pptx,
-                        .xlsx,
-                        .txt
-                    "
-                >
-
-
-                <div
-                    id="uploadIcon"
-                    class="upload-icon"
-                >
-                    📂
-                </div>
-
-
-                <div
-                    id="uploadTitle"
-                    class="upload-title"
-                >
-                    Click to Upload
-                </div>
-
-
-                <div
-                    id="uploadText"
-                    class="upload-text"
-                >
-                    Select your document
-                </div>
-
-            </label>
-
-
-            <div
-                id="fileName"
-                class="file-name"
-            >
-                No File Selected
-            </div>
-
-
-            <div class="order-details">
-
-                <div class="detail">
-
-                    <span>
-                        Pages
-                    </span>
-
-                    <strong id="pageCount">
-                        0
-                    </strong>
-
-                </div>
-
-
-                <div class="detail">
-
-                    <span>
-                        Copies
-                    </span>
-
-                    <input
-                        id="copies"
-                        type="number"
-                        min="1"
-                        value="1"
-                    >
-
-                </div>
-
-
-                <div class="detail">
-
-                    <span>
-                        Paper
-                    </span>
-
-                    <select id="paperSize">
-
-                        <option value="A4">
-                            A4
-                        </option>
-
-                        <option value="A3">
-                            A3
-                        </option>
-
-                    </select>
-
-                </div>
-
-
-                <div class="detail">
-
-                    <span>
-                        Orientation
-                    </span>
-
-                    <select id="orientation">
-
-                        <option value="Portrait">
-                            Portrait
-                        </option>
-
-                        <option value="Landscape">
-                            Landscape
-                        </option>
-
-                    </select>
-
-                </div>
-
-            </div>
-
-
-            <div class="print-type">
-
-                <label>
-
-                    <input
-                        type="radio"
-                        name="printType"
-                        value="bw"
-                        checked
-                    >
-
-                    Black & White
-
-                </label>
-
-
-                <label>
-
-                    <input
-                        type="radio"
-                        name="printType"
-                        value="color"
-                    >
-
-                    Colour
-
-                </label>
-
-            </div>
-
-
-            <div class="page-range">
-
-                <label
-                    for="pageRange"
-                >
-                    Page Range
-                </label>
-
-                <input
-                    id="pageRange"
-                    type="text"
-                    placeholder="All"
-                    value="All"
-                >
-
-            </div>
-
-
-            <div class="summary">
-
-                <div>
-
-                    <span>
-                        Print Type
-                    </span>
-
-                    <strong id="printSummary">
-                        Black & White
-                    </strong>
-
-                </div>
-
-
-                <div>
-
-                    <span>
-                        Paper Size
-                    </span>
-
-                    <strong id="paperSummary">
-                        A4
-                    </strong>
-
-                </div>
-
-
-                <div>
-
-                    <span>
-                        Queue
-                    </span>
-
-                    <strong id="queueCount">
-                        -
-                    </strong>
-
-                </div>
-
-
-                <div>
-
-                    <span>
-                        Estimated Wait
-                    </span>
-
-                    <strong id="waitingTime">
-                        -
-                    </strong>
-
-                </div>
-
-
-                <div>
-
-                    <span>
-                        Total
-                    </span>
-
-                    <strong>
-                        ₹<span id="price">0</span>
-                    </strong>
-
-                </div>
-
-            </div>
-
-
-            <button
-                id="payBtn"
-                disabled
-            >
-                Proceed to Payment
-            </button>
-
-
-            <div
-                id="status"
-                class="status"
-            >
-                Waiting for Payment
-            </div>
-
-
-            <div class="progress">
-
-                <div
-                    id="progressBar"
-                    class="progress-bar"
-                ></div>
-
-            </div>
-
-        </section>
-
-    </main>
-
-
-    <script src="script.js"></script>
-
-</body>
-
+        <option>A3</option>  
+
+    </select>  
+
+    <label for="orientation">  
+        Orientation  
+    </label>  
+
+    <select id="orientation">  
+
+        <option>Set to Default</option>  
+
+
+    </select>  
+
+    <label for="copies">  
+        Copies  
+    </label>  
+
+    <input  
+        type="number"  
+        id="copies"  
+        value="1"  
+        min="1"  
+    >  
+
+    <label for="pageRange">  
+        Pages to Print  
+    </label>  
+
+    <select id="pageRange">
+    <option value="All" selected>All Pages</option>
+    </select>
+      
+
+</div>  
+
+<!-- Order Summary -->  
+<div class="card">  
+
+    <h2>Order Summary</h2>  
+
+    <p>  
+        Document :  
+        <span id="fileName">  
+            No File Selected  
+        </span>  
+    </p>  
+
+    <p>  
+        Total Pages :  
+        <span id="pageCount">  
+            0  
+        </span>  
+    </p>  
+
+    <p>  
+        Copies :  
+        <span id="copyCount">  
+            1  
+        </span>  
+    </p>  
+
+    <p>  
+        Print Type :  
+        <span id="printSummary">  
+            Black & White  
+        </span>  
+    </p>  
+
+    <p>  
+        Paper Size :  
+        <span id="paperSummary">  
+            A4  
+        </span>  
+    </p>  
+
+    <p>  
+        Estimated Price :  
+        ₹<span id="price">  
+            0  
+        </span>  
+    </p>  
+
+</div>  
+
+<!-- Queue Status -->  
+<div class="card">  
+
+    <h2>Queue Status</h2>  
+
+    <p>  
+        Orders Ahead :  
+        <span id="queueCount">  
+            --  
+        </span>  
+    </p>  
+
+    <p>  
+        Estimated Waiting Time :  
+        <span id="waitingTime">  
+            --  
+        </span>  
+    </p>  
+
+    <p>  
+        Status :  
+        <span id="status">  
+            Waiting for Payment  
+        </span>  
+    </p>  
+
+    <div class="progress">  
+
+        <div id="progressBar"
+          class="progress-bar"></div>  
+
+    </div>  
+
+</div>  
+
+<!-- Button -->  
+<button  
+    id="payBtn"  
+    type="button">  
+    Proceed to Secure Payment →  
+</button>
+
+</div>  
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script src="script.js"></script>  </body>  
 </html>
