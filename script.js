@@ -2,7 +2,6 @@ const printFile = document.getElementById("printFile");
 const uploadIcon = document.getElementById("uploadIcon");
 const uploadTitle = document.getElementById("uploadTitle");
 const uploadText = document.getElementById("uploadText");
-
 const fileName = document.getElementById("fileName");
 const pageCount = document.getElementById("pageCount");
 const copyCount = document.getElementById("copyCount");
@@ -29,252 +28,106 @@ const printTypes = document.querySelectorAll(
 let pages = 0;
 let rate = 2;
 let file = null;
-let currentJob = null; // holds the /upload response once a file is uploaded
-
-// ==========================
-// Backend API
-// ==========================
+let currentJob = null;
 
 const API_URL = "https://server-point-xiir.onrender.com";
 
-// Must match backend ALLOWED_EXTENSIONS in main.py
 const ALLOWED_EXTENSIONS = [
-    "pdf", "jpg", "jpeg", "png",
-    "docx", "pptx", "xlsx", "txt"
+    "pdf",
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "bmp",
+    "tif",
+    "tiff",
+    "heic",
+    "heif",
+    "docx",
+    "pptx",
+    "xlsx",
+    "txt"
 ];
 
-// ==========================
-// TEMPORARY Mock Payment Gateway
-// Replace this whole block once Razorpay (Phase 4, see Guide.txt)
-// is integrated. Its only job right now is to actually simulate a
-// payment step that can fail, so the error flow can be tested.
-// ==========================
-// ==========================
-// Razorpay Checkout
-// ==========================
+const ALLOWED_IMAGE_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+    "image/bmp",
+    "image/tiff",
+    "image/heic",
+    "image/heif"
+];
 
-function loadRazorpayCheckout() {
-
-    return new Promise(function (resolve, reject) {
-
-        if (window.Razorpay) {
-            resolve();
-            return;
-        }
-
-        const existing = document.querySelector(
-            'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
-        );
-
-        if (existing) {
-
-            existing.addEventListener(
-                "load",
-                resolve,
-                { once: true }
-            );
-
-            existing.addEventListener(
-                "error",
-                function () {
-                    reject(
-                        new Error(
-                            "Unable to load Razorpay Checkout."
-                        )
-                    );
-                },
-                { once: true }
-            );
-
-            return;
-        }
-
-        const script =
-            document.createElement("script");
-
-        script.src =
-            "https://checkout.razorpay.com/v1/checkout.js";
-
-        script.async = true;
-
-        script.onload = resolve;
-
-        script.onerror = function () {
-
-            reject(
-                new Error(
-                    "Unable to load Razorpay Checkout."
-                )
-            );
-
-        };
-
-        document.head.appendChild(script);
-
-    });
-
+function getVendorId() {
+    return sessionStorage.getItem("serveprint_vendor_id");
 }
-// ==========================================
-// STEP 7 - VENDOR MAINTENANCE CHECK
-// ==========================================
 
-// ==========================================
-// SERVEPRINT VENDOR SESSION
-// ==========================================
+/*
+ * Vendor ID is used internally only.
+ * It must NEVER be displayed to the customer.
+ */
+const urlParams = new URLSearchParams(window.location.search);
+const URL_VENDOR_ID = urlParams.get("vendor_id");
 
-const urlParams =
-    new URLSearchParams(window.location.search);
-
-const URL_VENDOR_ID =
-    urlParams.get("vendor_id");
-
-const SAVED_VENDOR_ID =
-    sessionStorage.getItem("serveprint_vendor_id");
-
-// QR scan gives us the vendor ID.
-// Save it internally for this customer session.
 if (URL_VENDOR_ID) {
     sessionStorage.setItem(
         "serveprint_vendor_id",
         URL_VENDOR_ID
     );
-}
 
-// Always use the QR vendor first,
-// otherwise use the saved session vendor.
-const CURRENT_VENDOR_ID =
-    URL_VENDOR_ID ||
-    SAVED_VENDOR_ID ||
-    null;
-
-// Remove vendor_id from the visible URL
-// after saving it internally.
-if (URL_VENDOR_ID) {
-    const cleanURL =
-        window.location.origin +
-        window.location.pathname;
-
+    /*
+     * Immediately remove vendor_id from visible URL.
+     */
     window.history.replaceState(
         {},
         document.title,
-        cleanURL
+        window.location.origin +
+        window.location.pathname
     );
 }
-
-console.log(
-    "ServePrint vendor session initialized."
-);
-
-async function checkVendorMaintenance() {
-
-    // If there is no vendor_id, keep normal homepage working
-    if (!CURRENT_VENDOR_ID) {
-        console.log("No vendor_id. Normal homepage mode.");
-        return true;
-    }
-
-    // Save vendor ID for this customer session
-    sessionStorage.setItem(
-        "serveprint_vendor_id",
-        CURRENT_VENDOR_ID
-    );
-
-    try {
-
-        const response = await fetch(
-            API_URL +
-            "/vendor/" +
-            encodeURIComponent(CURRENT_VENDOR_ID) +
-            "/status",
-            {
-                method: "GET",
-                cache: "no-store"
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error("Unable to check vendor status.");
-        }
-
-        const data = await response.json();
-
-        console.log("Vendor status:", data);
-
-        // ==========================================
-        // VENDOR IS IN MAINTENANCE
-        // ==========================================
-
-        if (Boolean(data.maintenance)) {
-
-            window.location.replace(
-                "maintenance.html"
-            );
-
-            return false;
-        }
-
-        // Vendor is online
-        return true;
-
-    } catch (error) {
-
-        console.error(
-            "Vendor maintenance check failed:",
-            error
-        );
-
-        // Don't incorrectly block customers
-        // if status API temporarily fails.
-        return true;
-    }
-}
-
-// ==========================================
-// CHECK VENDOR BEFORE UPLOAD
-// ==========================================
-// This used to be declared *inside* checkVendorMaintenance(),
-// which meant it was invisible everywhere else in this file and
-// every upload attempt failed with "verifyVendorBeforeUpload is
-// not defined". It now lives at the top level so uploadDocument()
-// can actually call it.
-// ==========================================
 
 async function verifyVendorBeforeUpload() {
 
-    const vendorId =
-        sessionStorage.getItem(
-            "serveprint_vendor_id"
-        );
+    const vendorId = getVendorId();
 
     if (!vendorId) {
         throw new Error(
-            "Print shop session expired. Please scan the QR code again."
+            "Print shop session expired. Please scan the shop QR code again."
         );
     }
 
-    const response =
-        await fetch(
-            API_URL +
-            "/vendor/" +
-            encodeURIComponent(vendorId) +
-            "/status",
-            {
-                method: "GET",
-                cache: "no-store"
-            }
-        );
+    const response = await fetch(
+        API_URL +
+        "/vendor/" +
+        encodeURIComponent(vendorId) +
+        "/status",
+        {
+            method: "GET",
+            cache: "no-store"
+        }
+    );
 
     if (!response.ok) {
-        throw new Error(
-            "Unable to verify shop status. Please try again."
-        );
+
+        let message =
+            "Unable to verify the print shop.";
+
+        try {
+            const data = await response.json();
+
+            if (data.detail) {
+                message = data.detail;
+            }
+        } catch (e) {}
+
+        throw new Error(message);
     }
 
-    const data =
-        await response.json();
+    const data = await response.json();
 
-    // Shop entered maintenance while
-    // customer was already on the page.
     if (Boolean(data.maintenance)) {
 
         window.location.replace(
@@ -284,7 +137,6 @@ async function verifyVendorBeforeUpload() {
         return false;
     }
 
-    // Shop stopped accepting orders.
     if (data.accept_orders === false) {
 
         throw new Error(
@@ -295,336 +147,899 @@ async function verifyVendorBeforeUpload() {
     return true;
 }
 
-checkVendorMaintenance().then(function(canContinue) {
 
-    if (canContinue) {
-        init();
+/*
+ * Initial vendor status check.
+ */
+async function checkVendorMaintenance() {
+
+    const vendorId = getVendorId();
+
+    /*
+     * Normal homepage without QR vendor.
+     */
+    if (!vendorId) {
+        return true;
     }
-
-});
-
-function init() {
-
-    copyCount.textContent = copies.value;
-
-    paperSummary.textContent = paperSize.value;
-
-    printSummary.textContent = "Black & White";
-
-    queueCount.textContent = "-";
-  
-  waitingTime.textContent = "-";
-
-    updatePrice();
-
-    // No file uploaded yet - nothing to pay for.
-    payBtn.disabled = true;
-
-}
-
-printFile.addEventListener("change", function(){
-
-    if(!this.files.length) return;
-
-    const selected = this.files[0];
-
-    const ext = selected.name.split(".").pop().toLowerCase();
-
-    // ------------------------------
-    // Reject videos / unsupported types BEFORE showing any
-    // success tick. Backend still re-validates this on upload,
-    // this just stops the frontend from lying to the user.
-    // ------------------------------
-
-    if (
-        (selected.type && selected.type.startsWith("video/")) ||
-        !ALLOWED_EXTENSIONS.includes(ext)
-    ) {
-
-        alert(
-            "Unsupported file type. Allowed: " +
-            ALLOWED_EXTENSIONS.join(", ")
-        );
-
-        this.value = "";
-
-        uploadIcon.textContent = "📂";
-        uploadTitle.textContent = "Click to Upload";
-        uploadText.textContent = "Select your document";
-        fileName.textContent = "No File Selected";
-
-        file = null;
-        pages = 0;
-        pageCount.textContent = "0";
-        updatePrice();
-
-        return;
-
-    }
-
-    file = selected;
-
-    uploadIcon.textContent = "✅";
-
-    uploadTitle.textContent = file.name;
-
-    uploadText.textContent = formatSize(file.size);
-
-    fileName.textContent = file.name;
-
-    detectPages(file); // instant rough guess, replaced below by real data
-
-    refreshOrder(); // uploads now and fills in real page count + price
-
-});
-
-copies.addEventListener("input",function(){
-
-    if(this.value < 1){
-
-        this.value = 1;
-
-    }
-
-    copyCount.textContent = this.value;
-
-    updatePrice();
-
-});
-
-copies.addEventListener("focus", function () {
-
-    this.select();
-
-});
-
-paperSize.addEventListener("change",function(){
-
-    paperSummary.textContent = this.value;
-
-});
-
-printTypes.forEach(function(item){
-
-    item.addEventListener("change",function(){
-
-        if(this.value==="bw"){
-
-            rate=2;
-
-            printSummary.textContent="Black & White";
-
-        }else{
-
-            rate=10;
-
-            printSummary.textContent="Colour";
-
-        }
-
-        updatePrice();
-
-        if (file) refreshOrder();
-
-    });
-
-});
-
-function detectPages(selectedFile){
-
-    const ext =
-    selectedFile.name.split(".").pop().toLowerCase();
-
-    if(
-        ext==="jpg"||
-        ext==="jpeg"||
-        ext==="png"||
-        ext==="gif"||
-        ext==="webp"
-    ){
-
-        pages=1;
-        pageCount.textContent=pages;
-
-    }
-
-    else if (ext === "pdf" || ext === "pptx" || ext === "ppt") {
-
-        // Real page/slide count comes from the backend after upload
-        // (see payBtn click handler). Just show a placeholder here.
-        pages = 0;
-        pageCount.textContent = "Detecting...";
-
-    }
-
-    else{
-
-        pages=1;
-        pageCount.textContent=pages;
-
-    }
-
-    updatePrice();
-
-}
-
-function updatePrice(){
-
-    const total=
-    pages*
-    Number(copies.value)*
-    rate;
-
-    price.textContent=total;
-
-}
-
-// ==========================
-// Upload immediately + show real order details
-// (page count, price, queue, wait time) BEFORE the user
-// clicks "Proceed to Payment". payBtn stays disabled until
-// this succeeds, so payment can only start on a real job.
-// ==========================
-
-async function refreshOrder() {
-
-    if (!file) return;
-
-    payBtn.disabled = true;
-
-    pageCount.textContent = "Calculating...";
-    price.textContent = "...";
 
     try {
 
-        let result;
+        const response = await fetch(
+            API_URL +
+            "/vendor/" +
+            encodeURIComponent(vendorId) +
+            "/status",
+            {
+                method: "GET",
+                cache: "no-store"
+            }
+        );
 
-if (currentJob) {
+        if (!response.ok) {
+            return true;
+        }
 
-    result = await updateExistingJob();
+        const data = await response.json();
 
-} else {
+        if (Boolean(data.maintenance)) {
 
-    result = await uploadDocument();
+            window.location.replace(
+                "maintenance.html"
+            );
 
-}
+            return false;
+        }
 
-        if (!result) return;
+        if (data.accept_orders === false) {
 
-        currentJob = result;
+            /*
+             * Do not expose vendor ID.
+             */
+            alert(
+                "This shop is currently not accepting new orders."
+            );
 
-        pages = result.total_pages;
-        pageCount.textContent = result.total_pages;
-        price.textContent = result.total_amount;
-        queueCount.textContent = result.queue_number;
-        waitingTime.textContent =
-            result.estimated_wait_time + " min";
+            return false;
+        }
 
-        payBtn.disabled = false;
+        return true;
 
     } catch (error) {
 
-        console.error("Could not calculate order:", error);
-
-        currentJob = null;
-        pageCount.textContent = "0";
-        price.textContent = "0";
-        payBtn.disabled = true;
-
-        alert(
-            "Could not read your file: " +
-            (error.message || "Unknown error") +
-            "\nPlease try selecting the file again."
+        /*
+         * Do not block the customer just because
+         * the status request temporarily failed.
+         */
+        console.error(
+            "Vendor status check failed:",
+            error
         );
 
+        return true;
     }
-
 }
 
-function formatSize(size){
 
-    if(size<1024){
+function init() {
 
-        return size+" Bytes";
+    copyCount.textContent =
+        copies.value;
 
-    }
+    paperSummary.textContent =
+        paperSize.value;
 
-    if(size<1024*1024){
+    printSummary.textContent =
+        "Black & White";
 
-        return (size/1024).toFixed(2)+" KB";
+    queueCount.textContent =
+        "-";
 
-    }
+    waitingTime.textContent =
+        "-";
 
-    return (size/1024/1024).toFixed(2)+" MB";
+    updatePrice();
 
+    payBtn.disabled = true;
 }
 
-function random(min,max){
 
-    return Math.floor(Math.random()*(max-min+1))+min;
+/*
+ * File validation
+ */
+printFile.addEventListener(
+    "change",
+    async function () {
 
+        if (!this.files.length) {
+            return;
+        }
+
+        const selected =
+            this.files[0];
+
+        const ext =
+            selected.name
+                .split(".")
+                .pop()
+                .toLowerCase();
+
+        const mime =
+            selected.type || "";
+
+
+        /*
+         * Reject unsupported files.
+         */
+        if (
+            !ALLOWED_EXTENSIONS.includes(ext) &&
+            !ALLOWED_IMAGE_TYPES.includes(mime)
+        ) {
+
+            alert(
+                "Unsupported file type.\n\n" +
+                "Allowed: PDF, images, DOCX, PPTX, XLSX and TXT."
+            );
+
+            resetSelectedFile();
+
+            return;
+        }
+
+
+        /*
+         * Reject videos.
+         */
+        if (
+            mime &&
+            mime.startsWith("video/")
+        ) {
+
+            alert(
+                "Video files are not allowed."
+            );
+
+            resetSelectedFile();
+
+            return;
+        }
+
+
+        /*
+         * New file = new upload job.
+         */
+        currentJob = null;
+
+        file = selected;
+
+        uploadIcon.textContent =
+            "✅";
+
+        uploadTitle.textContent =
+            file.name;
+
+        uploadText.textContent =
+            formatSize(file.size);
+
+        fileName.textContent =
+            file.name;
+
+
+        /*
+         * Show instant page estimate.
+         */
+        detectPages(file);
+
+
+        /*
+         * Upload and calculate real details.
+         */
+        await refreshOrder();
+    }
+);
+
+
+function resetSelectedFile() {
+
+    printFile.value = "";
+
+    uploadIcon.textContent =
+        "📂";
+
+    uploadTitle.textContent =
+        "Click to Upload";
+
+    uploadText.textContent =
+        "Select your document";
+
+    fileName.textContent =
+        "No File Selected";
+
+    file = null;
+
+    pages = 0;
+
+    currentJob = null;
+
+    pageCount.textContent =
+        "0";
+
+    price.textContent =
+        "0";
+
+    queueCount.textContent =
+        "-";
+
+    waitingTime.textContent =
+        "-";
+
+    payBtn.disabled =
+        true;
+
+    updatePrice();
 }
 
-// ---------- PART 1B ----------
 
-// Restore previous order if available
-loadOrder();
+/*
+ * Local page detection.
+ *
+ * PDFs are intentionally NOT guessed as one page.
+ */
+function detectPages(selectedFile) {
 
-function loadOrder() {
+    const ext =
+        selectedFile.name
+            .split(".")
+            .pop()
+            .toLowerCase();
 
-    const saved = localStorage.getItem("serveprint_order");
+    if (
+        ext === "jpg" ||
+        ext === "jpeg" ||
+        ext === "png" ||
+        ext === "gif" ||
+        ext === "webp" ||
+        ext === "bmp" ||
+        ext === "tif" ||
+        ext === "tiff" ||
+        ext === "heic" ||
+        ext === "heif"
+    ) {
 
-    if (!saved) return;
+        pages = 1;
 
-    const order = JSON.parse(saved);
+        pageCount.textContent =
+            "1";
 
-    if (order.copies) {
-        copies.value = order.copies;
-        copyCount.textContent = order.copies;
+    } else {
+
+        /*
+         * Backend determines the real count.
+         */
+        pages = 0;
+
+        pageCount.textContent =
+            "Detecting...";
     }
 
-    if (order.paperSize) {
-        paperSize.value = order.paperSize;
-        paperSummary.textContent = order.paperSize;
-    }
-
-    if (order.orientation) {
-        orientation.value = order.orientation;
-    }
-
-    if (order.pageRange) {
-        pageRange.value = order.pageRange;
-    }
-
+    updatePrice();
 }
+
+
+function updatePrice() {
+
+    const total =
+        pages *
+        Number(copies.value) *
+        rate;
+
+    price.textContent =
+        total;
+}
+
+
+/*
+ * Upload document.
+ */
+async function uploadDocument() {
+
+    if (!file) {
+
+        throw new Error(
+            "Please upload a document."
+        );
+    }
+
+    const vendorId =
+        getVendorId();
+
+    if (!vendorId) {
+
+        throw new Error(
+            "Print shop session expired. Please scan the shop QR code again."
+        );
+    }
+
+
+    /*
+     * Verify shop before upload.
+     */
+    const canUpload =
+        await verifyVendorBeforeUpload();
+
+    if (!canUpload) {
+        return null;
+    }
+
+
+    const formData =
+        new FormData();
+
+
+    /*
+     * Vendor ID is transmitted internally.
+     * It is NEVER displayed.
+     */
+    formData.append(
+        "vendor_id",
+        vendorId
+    );
+
+    formData.append(
+        "file",
+        file
+    );
+
+    formData.append(
+        "copies",
+        copies.value
+    );
+
+    formData.append(
+        "print_type",
+        document.querySelector(
+            'input[name="printType"]:checked'
+        ).value
+    );
+
+    formData.append(
+        "paper_size",
+        paperSize.value
+    );
+
+    formData.append(
+        "page_range",
+        pageRange.value || "All"
+    );
+
+
+    let response;
+
+    try {
+
+        response = await fetch(
+            API_URL + "/upload",
+            {
+                method: "POST",
+                body: formData
+            }
+        );
+
+    } catch (networkError) {
+
+        console.error(
+            "Upload network error:",
+            networkError
+        );
+
+        throw new Error(
+            "Unable to connect to the print server. Please check your internet connection and try again."
+        );
+    }
+
+
+    if (!response.ok) {
+
+        let detail =
+            "Upload failed.";
+
+        try {
+
+            const errBody =
+                await response.json();
+
+            detail =
+                errBody.detail ||
+                errBody.message ||
+                detail;
+
+        } catch (e) {
+
+            try {
+
+                const text =
+                    await response.text();
+
+                if (text) {
+                    detail = text;
+                }
+
+            } catch (ignore) {}
+        }
+
+
+        throw new Error(
+            detail
+        );
+    }
+
+
+    try {
+
+        return await response.json();
+
+    } catch (e) {
+
+        throw new Error(
+            "The server returned an invalid upload response."
+        );
+    }
+}
+
+
+/*
+ * Refresh order details.
+ *
+ * IMPORTANT:
+ * A new file always creates a new job.
+ * Existing job is only updated when changing
+ * print settings.
+ */
+async function refreshOrder() {
+
+    if (!file) {
+        return;
+    }
+
+    payBtn.disabled =
+        true;
+
+    pageCount.textContent =
+        "Calculating...";
+
+    price.textContent =
+        "...";
+
+
+    try {
+
+        /*
+         * If no job exists, upload the file.
+         */
+        if (!currentJob) {
+
+            const result =
+                await uploadDocument();
+
+            if (!result) {
+                return;
+            }
+
+            currentJob =
+                result;
+
+        } else {
+
+            /*
+             * Existing job:
+             * only update settings.
+             */
+            currentJob =
+                await updateExistingJob();
+        }
+
+
+        if (!currentJob) {
+            return;
+        }
+
+
+        pages =
+            Number(
+                currentJob.total_pages
+            ) || 0;
+
+
+        pageCount.textContent =
+            pages;
+
+
+        price.textContent =
+            currentJob.total_amount;
+
+
+        queueCount.textContent =
+            currentJob.queue_number ?? 0;
+
+
+        waitingTime.textContent =
+            (
+                currentJob.estimated_wait_time ??
+                0
+            ) +
+            " min";
+
+
+        payBtn.disabled =
+            false;
+
+
+    } catch (error) {
+
+        console.error(
+            "Could not calculate order:",
+            error
+        );
+
+        currentJob =
+            null;
+
+        pageCount.textContent =
+            "0";
+
+        price.textContent =
+            "0";
+
+        payBtn.disabled =
+            true;
+
+
+        alert(
+            "Could not upload your file:\n\n" +
+            (
+                error.message ||
+                "Unknown error"
+            )
+        );
+    }
+}
+
+
+/*
+ * Update an existing unpaid job.
+ */
+async function updateExistingJob() {
+
+    if (!currentJob) {
+        return null;
+    }
+
+    let response;
+
+    try {
+
+        response =
+            await fetch(
+                API_URL +
+                "/jobs/" +
+                currentJob.job_id,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body:
+                        JSON.stringify({
+                            job_id:
+                                currentJob.job_id,
+
+                            copies:
+                                Number(
+                                    copies.value
+                                ),
+
+                            print_type:
+                                document.querySelector(
+                                    'input[name="printType"]:checked'
+                                ).value,
+
+                            paper_size:
+                                paperSize.value,
+
+                            orientation:
+                                orientation
+                                    ? orientation.value
+                                    : "Portrait",
+
+                            page_range:
+                                pageRange.value ||
+                                "All"
+                        })
+                }
+            );
+
+    } catch (error) {
+
+        throw new Error(
+            "Unable to connect to the print server."
+        );
+    }
+
+
+    if (!response.ok) {
+
+        let detail =
+            "Failed to update print job.";
+
+        try {
+
+            const body =
+                await response.json();
+
+            detail =
+                body.detail ||
+                body.message ||
+                detail;
+
+        } catch (e) {}
+
+        throw new Error(
+            detail
+        );
+    }
+
+
+    return await response.json();
+}
+
+
+/*
+ * Copies
+ */
+copies.addEventListener(
+    "input",
+    function () {
+
+        if (
+            this.value < 1
+        ) {
+            this.value = 1;
+        }
+
+        copyCount.textContent =
+            this.value;
+
+        updatePrice();
+    }
+);
+
+
+copies.addEventListener(
+    "change",
+    function () {
+
+        if (file) {
+            refreshOrder();
+        }
+    }
+);
+
+
+copies.addEventListener(
+    "focus",
+    function () {
+        this.select();
+    }
+);
+
+
+/*
+ * Paper size
+ */
+paperSize.addEventListener(
+    "change",
+    function () {
+
+        paperSummary.textContent =
+            this.value;
+
+        if (file) {
+            refreshOrder();
+        }
+    }
+);
+
+
+/*
+ * Print type
+ */
+printTypes.forEach(
+    function (item) {
+
+        item.addEventListener(
+            "change",
+            function () {
+
+                if (
+                    this.value === "bw"
+                ) {
+
+                    rate = 2;
+
+                    printSummary.textContent =
+                        "Black & White";
+
+                } else {
+
+                    rate = 10;
+
+                    printSummary.textContent =
+                        "Colour";
+                }
+
+                updatePrice();
+
+                if (file) {
+                    refreshOrder();
+                }
+            }
+        );
+    }
+);
+
+
+/*
+ * Page range
+ */
+pageRange.addEventListener(
+    "input",
+    function () {
+
+        saveOrder();
+    }
+);
+
+
+/*
+ * Orientation
+ */
+if (orientation) {
+
+    orientation.addEventListener(
+        "change",
+        function () {
+
+            saveOrder();
+
+            if (file) {
+                refreshOrder();
+            }
+        }
+    );
+}
+
+
+function formatSize(size) {
+
+    if (size < 1024) {
+        return size + " Bytes";
+    }
+
+    if (
+        size <
+        1024 * 1024
+    ) {
+
+        return (
+            size / 1024
+        ).toFixed(2) +
+        " KB";
+    }
+
+    return (
+        size /
+        1024 /
+        1024
+    ).toFixed(2) +
+    " MB";
+}
+
 
 function saveOrder() {
 
     const order = {
 
-        copies: copies.value,
-        paperSize: paperSize.value,
-        orientation: orientation.value,
-        pageRange: pageRange.value,
-        pages: pages,
-        price: price.textContent
+        copies:
+            copies.value,
 
+        paperSize:
+            paperSize.value,
+
+        orientation:
+            orientation.value,
+
+        pageRange:
+            pageRange.value,
+
+        pages:
+            pages,
+
+        price:
+            price.textContent
     };
 
     localStorage.setItem(
         "serveprint_order",
         JSON.stringify(order)
     );
-
 }
 
-copies.addEventListener("change", saveOrder);
-copies.addEventListener("change", function () { if (file) refreshOrder(); });
-paperSize.addEventListener("change", saveOrder);
-paperSize.addEventListener("change", function () { if (file) refreshOrder(); });
-orientation.addEventListener("change", saveOrder);
-pageRange.addEventListener("input", saveOrder);
 
+function loadOrder() {
+
+    const saved =
+        localStorage.getItem(
+            "serveprint_order"
+        );
+
+    if (!saved) {
+        return;
+    }
+
+    try {
+
+        const order =
+            JSON.parse(saved);
+
+        if (order.copies) {
+
+            copies.value =
+                order.copies;
+
+            copyCount.textContent =
+                order.copies;
+        }
+
+        if (order.paperSize) {
+
+            paperSize.value =
+                order.paperSize;
+
+            paperSummary.textContent =
+                order.paperSize;
+        }
+
+        if (
+            order.orientation &&
+            orientation
+        ) {
+
+            orientation.value =
+                order.orientation;
+        }
+
+        if (order.pageRange) {
+
+            pageRange.value =
+                order.pageRange;
+        }
+
+    } catch (error) {
+
+        console.error(
+            "Saved order could not be restored:",
+            error
+        );
+    }
+}
+
+
+loadOrder();
+
+
+/*
+ * Payment
+ */
 payBtn.addEventListener(
     "click",
     async function () {
@@ -638,7 +1053,8 @@ payBtn.addEventListener(
             return;
         }
 
-        payBtn.disabled = true;
+        payBtn.disabled =
+            true;
 
         const originalLabel =
             payBtn.textContent;
@@ -648,15 +1064,9 @@ payBtn.addEventListener(
             payBtn.textContent =
                 "Opening Payment...";
 
-            // --------------------------------------
-            // Load Razorpay Checkout
-            // --------------------------------------
 
             await loadRazorpayCheckout();
 
-            // --------------------------------------
-            // Create Razorpay Order
-            // --------------------------------------
 
             const orderResponse =
                 await fetch(
@@ -669,6 +1079,7 @@ payBtn.addEventListener(
                         method: "POST"
                     }
                 );
+
 
             if (!orderResponse.ok) {
 
@@ -687,15 +1098,14 @@ payBtn.addEventListener(
                 } catch (e) {}
 
                 throw new Error(
-                    "Payment Setup Failed (" +
-                    orderResponse.status +
-                    "): " +
                     detail
                 );
             }
 
+
             const order =
                 await orderResponse.json();
+
 
             if (
                 !order.razorpay_order_id ||
@@ -708,24 +1118,30 @@ payBtn.addEventListener(
                 );
             }
 
+
             payBtn.textContent =
                 "Waiting for Payment...";
 
-            // --------------------------------------
-            // Open Razorpay Checkout
-            // --------------------------------------
-const paymentResult =
-                await new Promise(
-                    function (resolve, reject) {
 
-                        let settled = false;
+            const paymentResult =
+                await new Promise(
+                    function (
+                        resolve,
+                        reject
+                    ) {
+
+                        let settled =
+                            false;
+
 
                         function failPayment(
                             message,
                             isRealPaymentFailure
                         ) {
 
-                            if (settled) return;
+                            if (settled) {
+                                return;
+                            }
 
                             settled = true;
 
@@ -744,6 +1160,7 @@ const paymentResult =
 
                             reject(error);
                         }
+
 
                         const options = {
 
@@ -766,6 +1183,7 @@ const paymentResult =
                             order_id:
                                 order.razorpay_order_id,
 
+
                             handler:
                                 async function (
                                     response
@@ -779,6 +1197,7 @@ const paymentResult =
 
                                         payBtn.textContent =
                                             "Verifying Payment...";
+
 
                                         const verifyResponse =
                                             await fetch(
@@ -798,16 +1217,15 @@ const paymentResult =
 
                                                     body:
                                                         JSON.stringify({
-
                                                             razorpay_payment_id:
                                                                 response.razorpay_payment_id,
 
                                                             razorpay_signature:
                                                                 response.razorpay_signature
-
                                                         })
                                                 }
                                             );
+
 
                                         if (
                                             !verifyResponse.ok
@@ -827,40 +1245,48 @@ const paymentResult =
 
                                             } catch (e) {}
 
-                                            throw new Error(
-                                                detail
+                                            failPayment(
+                                                detail,
+                                                true
                                             );
-                                        }
 
-                                        const verified =
-                                            await verifyResponse.json();
-
-                                        settled = true;
-
-                                        resolve({
-
-                                            ...response,
-
-                                            verification:
-                                                verified
-
-                                        });
-
-                                    } catch (error) {
-
-                                        if (settled) {
                                             return;
                                         }
 
-                                        settled = true;
 
-                                        error.isPaymentError =
+                                        const data =
+                                            await verifyResponse.json();
+
+
+                                        if (
+                                            !data.success
+                                        ) {
+
+                                            failPayment(
+                                                "Payment verification failed.",
+                                                true
+                                            );
+
+                                            return;
+                                        }
+
+
+                                        settled =
                                             true;
 
-                                        reject(error);
-                                    }
+                                        resolve(
+                                            data
+                                        );
 
+                                    } catch (error) {
+
+                                        failPayment(
+                                            "Unable to verify payment with the server.",
+                                            true
+                                        );
+                                    }
                                 },
+
 
                             modal: {
 
@@ -868,26 +1294,24 @@ const paymentResult =
                                     function () {
 
                                         failPayment(
-                                            "Payment window was closed.",
+                                            "Payment cancelled.",
                                             false
                                         );
-
                                     }
-
                             },
 
-                            retry: {
 
-                                enabled: true
-
+                            theme: {
+                                color: "#111827"
                             }
-
                         };
 
+
                         const razorpay =
-                            new window.Razorpay(
+                            new Razorpay(
                                 options
                             );
+
 
                         razorpay.on(
                             "payment.failed",
@@ -895,706 +1319,439 @@ const paymentResult =
                                 response
                             ) {
 
-                                const message =
-                                    response &&
-                                    response.error &&
-                                    response.error.description
-                                        ? response.error.description
-                                        : "Payment was declined. Please try again.";
-
                                 failPayment(
-                                    message,
+                                    (
+                                        response &&
+                                        response.error &&
+                                        response.error.description
+                                    ) ||
+                                    "Payment failed.",
                                     true
                                 );
-
                             }
                         );
 
-                        try {
 
-                            razorpay.open();
-
-                        } catch (error) {
-
-                            failPayment(
-                                error.message ||
-                                "Unable to open Razorpay Checkout.",
-                                false
-                            );
-
-                        }
-
+                        razorpay.open();
                     }
                 );
 
-            // --------------------------------------
-            // Payment Verified
-            // --------------------------------------
 
-            const verified =
-                paymentResult.verification;
+            if (paymentResult) {
 
-            currentJob.payment_id =
-                paymentResult.razorpay_payment_id;
+                currentJob =
+                    Object.assign(
+                        {},
+                        currentJob,
+                        paymentResult
+                    );
 
-            currentJob.payment_status =
-                "Paid";
-
-            currentJob.queue_number =
-                verified.queue_number;
-
-            currentJob.estimated_wait_time =
-                verified.estimated_wait_time;
-
-            currentJob.printer_status =
-                verified.printer_status;
-
-            localStorage.setItem(
-                "serveprint_order",
-                JSON.stringify(
-                    currentJob
-                )
-            );
-
-            // --------------------------------------
-            // Update final print settings
-            // --------------------------------------
-
-            try {
-
-                await createPrintJob(
-                    currentJob.job_id
+                setStatus(
+                    "Payment Completed"
                 );
 
-            } catch (
-                printJobError
-            ) {
-
-                console.error(
-                    "Print job update failed:",
-                    printJobError
+                setProgress(
+                    100
                 );
 
+                payBtn.textContent =
+                    "Payment Completed";
+
+                setTimeout(
+                    function () {
+
+                        simulatePrinting();
+
+                    },
+                    500
+                );
             }
 
-            // --------------------------------------
-            // Success
-            // --------------------------------------
 
-            window.location.href =
-                "success.html";
-
-        }
-
-        catch (error) {
+        } catch (error) {
 
             console.error(
-                "Payment flow error:",
+                "Payment error:",
                 error
             );
 
-            // --------------------------------------
-            // Only mark Failed when Razorpay
-            // reports an actual payment failure.
-            // Closing Checkout keeps it Pending.
-            // --------------------------------------
 
             if (
-                error.isPaymentError
+                error.isPaymentCancelled
             ) {
 
-                try {
+                setStatus(
+                    "Payment Cancelled"
+                );
 
-                    await fetch(
-                        API_URL +
-                        "/payment/" +
-                        encodeURIComponent(
-                            currentJob.job_id
-                        ) +
-                        "/failed",
-                        {
-                            method:
-                                "POST"
-                        }
-                    );
+            } else {
 
-                } catch (
-                    markError
-                ) {
-
-                    console.error(
-                        "Could not mark payment as failed:",
-                        markError
-                    );
-
-                }
-
+                setStatus(
+                    "Payment Failed"
+                );
             }
 
-            localStorage.setItem(
-                "serveprint_error",
-                JSON.stringify({
 
-                    title:
-                        error.isPaymentError
-                            ? "Payment Failed"
-                            : (
-                                error.isPaymentCancelled
-                                    ? "Payment Cancelled"
-                                    : "Payment Error"
-                            ),
-
-                    message:
-                        error.message ||
-                        "Unable to complete payment.",
-
-                    code:
-                        error.isPaymentError
-                            ? "ERR_PAYMENT_DECLINED"
-                            : (
-                                error.isPaymentCancelled
-                                    ? "ERR_PAYMENT_CANCELLED"
-                                    : "ERR_PAYMENT"
-                            )
-
-                })
+            setProgress(
+                0
             );
 
-            window.location.href =
-                "error.html";
 
-        }
+            alert(
+                error.message ||
+                "Payment failed."
+            );
 
-        finally {
 
             payBtn.disabled =
                 false;
 
             payBtn.textContent =
                 originalLabel;
-
         }
-
     }
 );
 
-function animateProgress(start, end) {
+/*
+ * Razorpay loader
+ */
+function loadRazorpayCheckout() {
 
-    let value = start;
+    return new Promise(
+        function (
+            resolve,
+            reject
+        ) {
 
-    const timer = setInterval(function () {
+            if (
+                window.Razorpay
+            ) {
 
-        value++;
+                resolve();
 
-        progressBar.style.width = value + "%";
+                return;
+            }
 
-        if (value >= end) {
 
-            clearInterval(timer);
+            const existing =
+                document.querySelector(
+                    'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+                );
 
+
+            if (existing) {
+
+                existing.addEventListener(
+                    "load",
+                    resolve,
+                    {
+                        once: true
+                    }
+                );
+
+                existing.addEventListener(
+                    "error",
+                    function () {
+
+                        reject(
+                            new Error(
+                                "Unable to load Razorpay Checkout."
+                            )
+                        );
+                    },
+                    {
+                        once: true
+                    }
+                );
+
+                return;
+            }
+
+
+            const script =
+                document.createElement(
+                    "script"
+                );
+
+            script.src =
+                "https://checkout.razorpay.com/v1/checkout.js";
+
+            script.async =
+                true;
+
+            script.onload =
+                resolve;
+
+            script.onerror =
+                function () {
+
+                    reject(
+                        new Error(
+                            "Unable to load Razorpay Checkout."
+                        )
+                    );
+                };
+
+            document.head.appendChild(
+                script
+            );
         }
-
-    }, 20);
-
-}
-
-// ================================
-// PART 2
-// ================================
-
-// Auto save when file changes
-printFile.addEventListener("change", saveOrder);
-
-// Update summary when paper size changes
-paperSize.addEventListener("change", function () {
-    paperSummary.textContent = paperSize.value;
-    saveOrder();
-});
-
-// Update copies live
-copies.addEventListener("keyup", function () {
-
-    if (copies.value === "" || Number(copies.value) < 1) {
-        copies.value = 1;
-    }
-
-    copyCount.textContent = copies.value;
-
-    updatePrice();
-
-    saveOrder();
-
-});
-
-
-// Backend Ready Object
-function getOrderData() {
-
-    return {
-
-        filename: file ? file.name : "",
-
-        pages: pages,
-
-        copies: Number(copies.value),
-
-        paperSize: paperSize.value,
-
-        orientation: orientation.value,
-
-        pageRange: pageRange.value,
-
-        printType: rate === 2 ? "bw" : "color",
-
-        totalPrice: Number(price.textContent)
-
-    };
-
+    );
 }
 
 
-// Future FastAPI Integration
-async function sendOrderToServer() {
-
-    const order = getOrderData();
-
-    console.log("Order Ready");
-
-    console.log(order);
-
-}
-
-
-// Button animation
-payBtn.addEventListener("mousedown",function(){
-
-    payBtn.style.transform="scale(.98)";
-
-});
-
-payBtn.addEventListener("mouseup",function(){
-
-    payBtn.style.transform="scale(1)";
-
-});
-
-payBtn.addEventListener("mouseleave",function(){
-
-    payBtn.style.transform="scale(1)";
-
-});
-
-
-// Reset order
-function resetOrder(){
-
-    pages=0;
-
-    file=null;
-
-    currentJob=null;
-
-    fileName.textContent="No File Selected";
-
-    pageCount.textContent="0";
-
-    copyCount.textContent="1";
-
-    price.textContent="0";
-
-    uploadIcon.textContent="📂";
-
-    uploadTitle.textContent="Click to Upload";
-
-    uploadText.textContent="Select your document";
-
-    progressBar.style.width="0%";
-
-    status.textContent="Waiting for Payment";
-
-    payBtn.disabled=true;
-
-}
-
-
-// Check browser support
-window.addEventListener("load",function(){
-
-    if(!window.FileReader){
-
-        alert("Your browser does not support file upload.");
-
-    }
-
-});
-
-
-// Prevent accidental refresh
-window.addEventListener("beforeunload",function(e){
-
-    if(file){
-
-        e.preventDefault();
-
-        e.returnValue="";
-
-    }
-
-});
-
-
-// Developer helper
-console.log("ServePrint Ready");
-
-// ===============================
-// PART 2B
-// Final Utilities
-// ===============================
-
-// Format page range
-function validatePageRange() {
-
-    const value = pageRange.value.trim();
-
-    if (value === "") {
-        return true;
-    }
-
-    const regex = /^(\d+(-\d+)?)(,\d+(-\d+)?)*$/;
-
-    if (!regex.test(value) && value.toLowerCase() !== "all") {
-
-        alert("Invalid page range.");
-
-        pageRange.focus();
-
-        return false;
-
-    }
-
-    return true;
-
-}
-
-pageRange.addEventListener("blur", validatePageRange);
-
-
-// Recalculate whenever copies change
-copies.addEventListener("change", function () {
-
-    updatePrice();
-
-});
-
-
-// Keyboard shortcut
-document.addEventListener("keydown", function (e) {
-
-    if (e.ctrlKey && e.key === "Enter") {
-
-        payBtn.click();
-
-    }
-
-});
-
-
-// Status helper
+/*
+ * Status helper
+ */
 function setStatus(text) {
 
-    status.textContent = text;
-
+    if (status) {
+        status.textContent =
+            text;
+    }
 }
 
 
-// Progress helper
 function setProgress(value) {
 
-    progressBar.style.width = value + "%";
-
+    if (progressBar) {
+        progressBar.style.width =
+            value + "%";
+    }
 }
 
 
-// Simulate printer processing
+/*
+ * Printing simulation
+ */
 function simulatePrinting() {
 
-    setStatus("Printing...");
+    setStatus(
+        "Printing..."
+    );
 
-    setProgress(100);
+    setProgress(
+        100
+    );
 
-    setTimeout(function () {
+    setTimeout(
+        function () {
 
-        setStatus("Print Completed");
+            setStatus(
+                "Print Completed"
+            );
 
-    }, 3000);
-
+        },
+        3000
+    );
 }
 
 
-// Clear order
+/*
+ * Clear saved order
+ */
 function clearSavedOrder() {
 
-    localStorage.removeItem("serveprint_order");
-
+    localStorage.removeItem(
+        "serveprint_order"
+    );
 }
 
 
-// Reset after completion
+/*
+ * Complete order
+ */
 function completeOrder() {
 
     clearSavedOrder();
 
     resetOrder();
-
 }
 
 
-// Future callback
-function paymentSuccess() {
+function resetOrder() {
 
-    simulatePrinting();
+    pages = 0;
 
+    file = null;
+
+    currentJob = null;
+
+    printFile.value = "";
+
+    fileName.textContent =
+        "No File Selected";
+
+    pageCount.textContent =
+        "0";
+
+    copyCount.textContent =
+        "1";
+
+    price.textContent =
+        "0";
+
+    uploadIcon.textContent =
+        "📂";
+
+    uploadTitle.textContent =
+        "Click to Upload";
+
+    uploadText.textContent =
+        "Select your document";
+
+    progressBar.style.width =
+        "0%";
+
+    status.textContent =
+        "Waiting for Payment";
+
+    payBtn.disabled =
+        true;
 }
 
+/*
+ * Page range validation
+ */
+function validatePageRange() {
 
-// Future callback
-function paymentFailed() {
+    const value =
+        pageRange.value.trim();
 
-    setStatus("Payment Failed");
-
-    setProgress(0);
-
-}
-
-
-// Developer Debug
-function debugOrder() {
-
-    console.table(getOrderData());
-
-}
-
-
-// Auto Debug
-window.debugOrder = debugOrder;
-
-
-// Version
-const APP_VERSION = "1.1.0";
-
-console.log("ServePrint Version :", APP_VERSION);
-
-console.log("Frontend Loaded Successfully");
-
-// ==========================
-// Upload File To Backend
-// ==========================
-
-async function uploadDocument() {
-
-    if (!file) {
-
-        alert("Please upload a document.");
-
-        return null;
-
+    if (value === "") {
+        return true;
     }
 
-  // Always verify the shop status immediately
-// before sending the file.
-const canUpload =
-    await verifyVendorBeforeUpload();
 
-if (!canUpload) {
-    return null;
+    const regex =
+        /^(\d+(-\d+)?)(,\d+(-\d+)?)*$/;
+
+
+    if (
+        !regex.test(value) &&
+        value.toLowerCase() !==
+        "all"
+    ) {
+
+        alert(
+            "Invalid page range."
+        );
+
+        pageRange.focus();
+
+        return false;
+    }
+
+    return true;
 }
 
-    const formData = new FormData();
 
-  // Vendor ID from QR / URL
-    // Vendor ID is stored internally in the customer session.
-// It is intentionally NOT read from the visible URL.
-const vendorId =
-    sessionStorage.getItem(
-        "serveprint_vendor_id"
-    );
-
-if (!vendorId) {
-    throw new Error(
-        "This print shop session has expired. Please scan the shop QR code again."
-    );
-}
-
-formData.append(
-    "vendor_id",
-    vendorId
+pageRange.addEventListener(
+    "blur",
+    validatePageRange
 );
 
-    formData.append("file", file);
 
-    formData.append("copies", copies.value);
+/*
+ * Keyboard shortcut
+ */
+document.addEventListener(
+    "keydown",
+    function (e) {
 
-    formData.append(
-        "print_type",
-        document.querySelector(
-            'input[name="printType"]:checked'
-        ).value
-    );
+        if (
+            e.ctrlKey &&
+            e.key === "Enter"
+        ) {
 
-    formData.append(
-        "paper_size",
-        paperSize.value
-    );
-
-    formData.append(
-        "page_range",
-        pageRange.value || "All"
-    );
-
-    const response = await fetch(
-
-        API_URL + "/upload",
-
-        {
-
-            method: "POST",
-
-            body: formData
-
+            payBtn.click();
         }
-
-    );
-
-    if (!response.ok) {
-
-        let detail = "";
-
-        try {
-            const errBody = await response.json();
-            detail = errBody.detail || JSON.stringify(errBody);
-        } catch (e) {
-            detail = await response.text().catch(() => "");
-        }
-
-        throw new Error(
-            "Upload Failed (" + response.status + "): " +
-            (detail || "No details returned")
-        );
-
     }
+);
 
-    return await response.json();
 
-}
+/*
+ * Browser support
+ */
+window.addEventListener(
+    "load",
+    async function () {
 
-async function updateExistingJob() {
+        if (!window.FileReader) {
 
-    if (!currentJob) return null;
+            alert(
+                "Your browser does not support file upload."
+            );
 
-    const response = await fetch(
-
-        API_URL + "/jobs/" + currentJob.job_id,
-
-        {
-
-            method: "PUT",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({
-
-                job_id: currentJob.job_id,
-
-                copies: Number(copies.value),
-
-                print_type: document.querySelector(
-                    'input[name="printType"]:checked'
-                ).value,
-
-                paper_size: paperSize.value,
-
-                orientation: orientation.value,
-
-                page_range: pageRange.value || "All"
-
-            })
-
+            return;
         }
 
-    );
 
-    if (!response.ok) {
+        const canContinue =
+            await checkVendorMaintenance();
 
-        throw new Error("Failed to update print job.");
 
+        if (canContinue) {
+            init();
+        }
     }
+);
 
-    return await response.json();
 
-}
+/*
+ * Prevent accidental refresh while
+ * an upload/order is active.
+ */
+window.addEventListener(
+    "beforeunload",
+    function (e) {
 
-async function createPrintJob(jobId) {
+        if (file) {
 
-    const response = await fetch(
+            e.preventDefault();
 
-        API_URL + "/print",
-
-        {
-
-            method: "POST",
-
-            headers: {
-
-                "Content-Type": "application/json"
-
-            },
-
-            body: JSON.stringify({
-
-                job_id: jobId,
-
-                copies: Number(copies.value),
-
-                print_type: document.querySelector(
-
-                    'input[name="printType"]:checked'
-
-                ).value,
-
-                paper_size: paperSize.value,
-
-                // was missing before - backend requires this field
-                orientation: orientation ? orientation.value : "Portrait",
-
-                page_range: pageRange.value || "All"
-
-            })
-
+            e.returnValue =
+                "";
         }
-
-    );
-
-    if (!response.ok) {
-
-        let detail = "";
-
-        try {
-            const errBody = await response.json();
-            detail = errBody.detail || JSON.stringify(errBody);
-        } catch (e) {
-            detail = await response.text().catch(() => "");
-        }
-
-        throw new Error(
-            "Print Job Failed (" + response.status + "): " +
-            (detail || "No details returned")
-        );
-
     }
+);
 
-    return await response.json();
 
-}
-                                       
+/*
+ * Developer helper.
+ * Vendor ID is deliberately NOT logged.
+ */
+window.debugOrder =
+    function () {
+
+        console.table({
+            job_id:
+                currentJob
+                    ? currentJob.job_id
+                    : null,
+
+            file:
+                file
+                    ? file.name
+                    : null,
+
+            pages:
+                pages,
+
+            price:
+                price.textContent
+        });
+    };
+
+
+const APP_VERSION =
+    "1.2.0";
+
+console.log(
+    "ServePrint Version:",
+    APP_VERSION
+);
+
+console.log(
+    "ServePrint frontend loaded."
+);
