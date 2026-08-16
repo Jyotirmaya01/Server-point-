@@ -172,6 +172,8 @@ const ordersBody =
         "ordersBody"
     );
 
+let latestOrders = [];
+
 
 /* ---------- Maintenance ---------- */
 
@@ -341,27 +343,35 @@ function hideLoader() {
    8. TOAST
    ========================================================= */
 
+const toastContainer =
+    document.getElementById("toastContainer");
+
 function showToast(
     message,
     type = "success"
 ) {
 
-    if (
-        typeof window.showToast ===
-        "function"
-    ) {
+    console.log(`[${type}] ${message}`);
 
-        window.showToast(
-            message,
-            type
-        );
-
+    if (!toastContainer) {
         return;
     }
 
-    console.log(
-        `[${type}] ${message}`
-    );
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+
+    toastContainer.appendChild(toast);
+
+    setTimeout(function () {
+
+        toast.classList.add("fade-out");
+
+        setTimeout(function () {
+            toast.remove();
+        }, 200);
+
+    }, 3500);
 }
 
 
@@ -374,6 +384,13 @@ async function apiRequest(
     options = {}
 ) {
 
+    const authHeaders = {};
+
+    if (vendorSession && vendorSession.token) {
+        authHeaders.Authorization =
+            `Bearer ${vendorSession.token}`;
+    }
+
     const response =
         await fetch(
             `${API_URL}${endpoint}`,
@@ -383,6 +400,7 @@ async function apiRequest(
                     "Content-Type":
                         "application/json",
 
+                    ...authHeaders,
                     ...(options.headers || {})
                 }
             }
@@ -523,6 +541,10 @@ async function loadOrders() {
 
         ordersBody.innerHTML = "";
 
+        latestOrders =
+            Array.isArray(orders) ? orders : [];
+
+        renderActivity(latestOrders);
 
         if (
             !Array.isArray(orders) ||
@@ -532,7 +554,7 @@ async function loadOrders() {
             ordersBody.innerHTML = `
                 <tr>
                     <td
-                        colspan="8"
+                        colspan="9"
                         style="text-align:center;"
                     >
                         No orders yet.
@@ -558,6 +580,23 @@ async function loadOrders() {
                         "tr"
                     );
 
+                row.dataset.jobId =
+                    order.job_id || "";
+
+                row.dataset.printerStatus =
+                    (order.printer_status || "").toLowerCase();
+
+                row.dataset.searchText = (
+                    (order.original_name || "") +
+                    " " +
+                    (order.queue_number ?? "")
+                ).toLowerCase();
+
+                const printerStatus =
+                    order.printer_status || "Pending";
+
+                const isCompleted =
+                    printerStatus.toLowerCase() === "completed";
 
                 row.innerHTML = `
 
@@ -597,23 +636,26 @@ async function loadOrders() {
                     </td>
 
                     <td>
-                        ${escapeHTML(
-                            order.payment_status ??
-                            "-"
-                        )}
+                        ${paymentBadge(order.payment_status)}
                     </td>
 
                     <td>
-                        ${escapeHTML(
-                            order.printer_status ??
-                            "-"
-                        )}
+                        ${statusBadge(printerStatus)}
                     </td>
 
                     <td>
                         ${formatTime(
                             order.created_at
                         )}
+                    </td>
+
+                    <td>
+                        <button
+                            class="row-action-btn markPrintedBtn"
+                            ${isCompleted ? "disabled" : ""}
+                        >
+                            ${isCompleted ? "Done" : "Mark Printed"}
+                        </button>
                     </td>
 
                 `;
@@ -623,6 +665,8 @@ async function loadOrders() {
                 );
             }
         );
+
+        applyOrdersFilter();
 
     } catch (error) {
 
@@ -636,7 +680,7 @@ async function loadOrders() {
             ordersBody.innerHTML = `
                 <tr>
                     <td
-                        colspan="8"
+                        colspan="9"
                         style="text-align:center;"
                     >
                         Unable to load orders.
@@ -644,6 +688,212 @@ async function loadOrders() {
                 </tr>
             `;
         }
+    }
+}
+
+/* =========================================================
+   11B. STATUS BADGES
+   ========================================================= */
+
+function statusBadge(status) {
+
+    const value = (status || "Pending").toString();
+    const key = value.toLowerCase();
+
+    return `<span class="badge badge-${escapeHTML(key)}">${escapeHTML(value)}</span>`;
+}
+
+function paymentBadge(status) {
+
+    const value = (status || "Pending").toString();
+    const key = value.toLowerCase();
+
+    return `<span class="badge badge-${escapeHTML(key)}">${escapeHTML(value)}</span>`;
+}
+
+/* =========================================================
+   11C. MARK ORDER AS PRINTED
+   ========================================================= */
+
+if (ordersBody) {
+
+    ordersBody.addEventListener("click", async function (e) {
+
+        const btn = e.target.closest(".markPrintedBtn");
+
+        if (!btn) {
+            return;
+        }
+
+        const row = btn.closest("tr");
+        const jobId = row ? row.dataset.jobId : null;
+
+        if (!jobId) {
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Updating...";
+
+        try {
+
+            await apiRequest(
+                `/jobs/${jobId}/printer/Completed`,
+                { method: "PUT" }
+            );
+
+            showToast("Order marked as printed.", "success");
+
+            await loadOrders();
+
+        } catch (error) {
+
+            console.error("Mark printed error:", error);
+
+            showToast(
+                error.message || "Unable to update order.",
+                "error"
+            );
+
+            btn.disabled = false;
+            btn.textContent = "Mark Printed";
+        }
+
+    });
+}
+
+/* =========================================================
+   11D. ORDERS SEARCH / FILTER
+   ========================================================= */
+
+const searchOrderInput =
+    document.getElementById("searchOrder");
+
+const statusFilterSelect =
+    document.getElementById("statusFilter");
+
+function applyOrdersFilter() {
+
+    if (!ordersBody) {
+        return;
+    }
+
+    const query =
+        searchOrderInput ?
+            searchOrderInput.value.trim().toLowerCase() :
+            "";
+
+    const status =
+        statusFilterSelect ?
+            statusFilterSelect.value :
+            "all";
+
+    const rows =
+        ordersBody.querySelectorAll("tr");
+
+    let visibleCount = 0;
+
+    rows.forEach(function (row) {
+
+        if (!row.dataset || row.dataset.jobId === undefined) {
+            return;
+        }
+
+        const matchesQuery =
+            !query || row.dataset.searchText.includes(query);
+
+        const matchesStatus =
+            status === "all" ||
+            row.dataset.printerStatus === status;
+
+        const visible = matchesQuery && matchesStatus;
+
+        row.style.display = visible ? "" : "none";
+
+        if (visible) {
+            visibleCount++;
+        }
+
+    });
+
+    return visibleCount;
+}
+
+if (searchOrderInput) {
+    searchOrderInput.addEventListener("input", applyOrdersFilter);
+}
+
+if (statusFilterSelect) {
+    statusFilterSelect.addEventListener("change", applyOrdersFilter);
+}
+
+/* =========================================================
+   11E. RECENT ACTIVITY FEED
+   ========================================================= */
+
+const activityList =
+    document.getElementById("activityList");
+
+const notificationList =
+    document.getElementById("notificationList");
+
+const notificationDot =
+    document.getElementById("notificationDot");
+
+function activityIconFor(status) {
+
+    const key = (status || "").toLowerCase();
+
+    if (key === "completed") return "fa-solid fa-circle-check";
+    if (key === "printing") return "fa-solid fa-print";
+    return "fa-solid fa-clock";
+}
+
+function renderActivity(orders) {
+
+    const recent =
+        [...orders]
+            .sort(function (a, b) {
+                return new Date(b.created_at) - new Date(a.created_at);
+            })
+            .slice(0, 8);
+
+    const itemsHTML =
+        recent.length === 0 ?
+            `<div class="activity-empty">No recent activity yet.</div>` :
+            recent.map(function (order) {
+
+                return `
+                    <div class="activity-item">
+                        <i class="${activityIconFor(order.printer_status)}"></i>
+                        <span class="activity-text">
+                            Order #${escapeHTML(order.queue_number ?? "-")}
+                            (${escapeHTML(order.original_name ?? "file")})
+                            - ${escapeHTML(order.printer_status || "Pending")}
+                        </span>
+                        <span class="activity-time">
+                            ${formatTime(order.created_at)}
+                        </span>
+                    </div>
+                `;
+
+            }).join("");
+
+    if (activityList) {
+        activityList.innerHTML = itemsHTML;
+    }
+
+    if (notificationList) {
+        notificationList.innerHTML = itemsHTML;
+    }
+
+    if (notificationDot) {
+        notificationDot.classList.toggle(
+            "active",
+            recent.some(function (order) {
+                return (order.printer_status || "").toLowerCase() === "pending";
+            })
+        );
     }
 }
 
@@ -1652,33 +1902,145 @@ if (refreshBtn) {
    26. LOGOUT
    ========================================================= */
 
+function doLogout() {
+
+    localStorage.removeItem(
+        "serveprint_vendor"
+    );
+
+    localStorage.removeItem(
+        "remember_vendor"
+    );
+
+    localStorage.removeItem(
+        "vendor_id"
+    );
+
+    localStorage.removeItem(
+        "vendor_token"
+    );
+
+
+    window.location.href =
+        "vendor_login.html";
+}
+
 if (logoutBtn) {
 
     logoutBtn.addEventListener(
         "click",
         () => {
 
-            localStorage.removeItem(
-                "serveprint_vendor"
+            confirmAction(
+                "Log Out",
+                "Are you sure you want to log out of your vendor dashboard?",
+                doLogout
             );
-
-            localStorage.removeItem(
-                "remember_vendor"
-            );
-
-            localStorage.removeItem(
-                "vendor_id"
-            );
-
-            localStorage.removeItem(
-                "vendor_token"
-            );
-
-
-            window.location.href =
-                "vendor_login.html";
         }
     );
+}
+
+/* =========================================================
+   26D. MOBILE SIDEBAR TOGGLE
+   ========================================================= */
+
+const navToggle =
+    document.getElementById("navToggle");
+
+const sidebarEl =
+    document.getElementById("sidebar");
+
+const sidebarOverlay =
+    document.getElementById("sidebarOverlay");
+
+function openSidebar() {
+
+    if (sidebarEl) sidebarEl.classList.add("open");
+    if (sidebarOverlay) sidebarOverlay.classList.add("active");
+}
+
+function closeSidebar() {
+
+    if (sidebarEl) sidebarEl.classList.remove("open");
+    if (sidebarOverlay) sidebarOverlay.classList.remove("active");
+}
+
+if (navToggle) {
+    navToggle.addEventListener("click", openSidebar);
+}
+
+if (sidebarOverlay) {
+    sidebarOverlay.addEventListener("click", closeSidebar);
+}
+
+/* =========================================================
+   26E. QUICK ACTION BUTTONS
+   ========================================================= */
+
+function goToSection(sectionName) {
+
+    sidebarItems.forEach(function (navItem) {
+
+        navItem.classList.toggle(
+            "active",
+            navItem.textContent.trim() === sectionName
+        );
+
+    });
+
+    showDashboardSection(sectionName);
+    closeSidebar();
+}
+
+const newOrderBtn =
+    document.getElementById("newOrderBtn");
+
+const queueBtn =
+    document.getElementById("queueBtn");
+
+const downloadQRBtn =
+    document.getElementById("downloadQRBtn");
+
+const analyticsBtn =
+    document.getElementById("analyticsBtn");
+
+const maintenanceBtn =
+    document.getElementById("maintenanceBtn");
+
+if (newOrderBtn) {
+    newOrderBtn.addEventListener("click", function () {
+        goToSection("Orders");
+    });
+}
+
+if (queueBtn) {
+    queueBtn.addEventListener("click", function () {
+        goToSection("Queue");
+    });
+}
+
+if (analyticsBtn) {
+    analyticsBtn.addEventListener("click", function () {
+        goToSection("Analytics");
+    });
+}
+
+if (maintenanceBtn) {
+    maintenanceBtn.addEventListener("click", function () {
+        goToSection("Maintenance");
+    });
+}
+
+if (downloadQRBtn) {
+    downloadQRBtn.addEventListener("click", function () {
+
+        if (downloadPNG) {
+            downloadPNG.click();
+        } else {
+            goToSection("QR Code");
+        }
+
+    });
 }
 
 

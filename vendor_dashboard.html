@@ -32,9 +32,12 @@
 
 <div class="dashboard">
 
+    <!-- Sidebar overlay (mobile) -->
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
     <!-- Sidebar -->
 
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
 
         <div class="logo">
 
@@ -164,19 +167,29 @@
 
         <header class="topbar">
 
-            <div>
+            <div class="topbar-left">
 
-                <h1>
+                <button id="navToggle" class="nav-toggle" aria-label="Open menu">
 
-                    Vendor Dashboard
+                    <i class="fa-solid fa-bars"></i>
 
-                </h1>
+                </button>
 
-                <p>
+                <div>
 
-                    Manage your print shop in real time.
+                    <h1>
 
-                </p>
+                        Vendor Dashboard
+
+                    </h1>
+
+                    <p>
+
+                        Manage your print shop in real time.
+
+                    </p>
+
+                </div>
 
             </div>
 
@@ -187,6 +200,13 @@
                     <i class="fa-solid fa-rotate"></i>
 
                     Refresh
+
+                </button>
+
+                <button id="notificationBtn" class="icon-btn" aria-label="Notifications">
+
+                    <i class="fa-solid fa-bell"></i>
+                    <span id="notificationDot" class="badge-dot"></span>
 
                 </button>
 
@@ -1098,6 +1118,10 @@
 
                 </h3>
 
+                <button id="notificationClose" class="notification-close" aria-label="Close notifications">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
             </div>
 
             <div id="notificationList">
@@ -1175,6 +1199,9 @@
     </main>
 
 </div>
+
+<!-- Toasts -->
+<div id="toastContainer" class="toast-container"></div>
 
 <!-- Chart.js -->
 

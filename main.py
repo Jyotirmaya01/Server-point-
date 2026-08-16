@@ -1909,49 +1909,12 @@ def set_vendor_accept_orders(
         "vendor_id": vendor_id,
         "accept_orders": enabled
     }
-# ==========================================
-# Public Vendor Status API
-# ==========================================
-@app.get("/vendor/{vendor_id}/status")
-def get_vendor_status(vendor_id: str):
-
-    vendor = get_vendor_by_id(vendor_id)
-
-    if vendor is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Vendor not found."
-        )
-
-    maintenance = get_vendor_maintenance(
-        vendor_id
-    )
-
-    if maintenance is None:
-        maintenance = False
-
-    settings = get_vendor_settings(
-        vendor_id
-    )
-
-    if settings is None:
-        accept_orders = True
-    else:
-        accept_orders = bool(
-            settings.get(
-                "accept_orders",
-                True
-            )
-        )
-
-    return {
-        "valid": True,
-        "active": True,
-        "vendor_id": vendor_id,
-        "shop_name": vendor["shop_name"],
-        "maintenance": maintenance,
-        "accept_orders": accept_orders
-    }
+# NOTE: the public vendor status endpoint used by the customer
+# frontend lives near the top of this file (see "Public Vendor
+# Status" above, right after the generic /status route). A second,
+# duplicate copy of this route used to live here and also leaked
+# the vendor's shop_name to unauthenticated customers - it has
+# been removed.
 
 # ==========================================
 # Customer Vendor Validation API
