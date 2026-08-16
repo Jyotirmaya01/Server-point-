@@ -85,7 +85,7 @@
 
                 <label>
 
-                    Shop Name
+                    Shop Name <span class="optional-tag">(Optional)</span>
 
                 </label>
 
@@ -96,8 +96,7 @@
                     <input
                         type="text"
                         id="shopName"
-                        placeholder="ABC Print Shop"
-                        required>
+                        placeholder="ABC Print Shop">
 
                 </div>
 
@@ -268,14 +267,14 @@
 
                     I agree to the
 
-                    <a href="#">
+                    <a href="#" id="termsLink">
                         Terms &
                         Conditions
                     </a>
 
                     and
 
-                    <a href="#">
+                    <a href="#" id="privacyLink">
                         Privacy Policy
                     </a>
 
@@ -397,6 +396,34 @@
 
             </div>
 
+
+                      <!-- Terms & Privacy Modal -->
+
+            <div
+                id="policyModal"
+                class="success-popup">
+
+                <div class="popup-card policy-card">
+
+                    <h2 id="policyModalTitle">
+                        Terms &amp; Conditions
+                    </h2>
+
+                    <div class="policy-body" id="policyModalBody">
+                    </div>
+
+                    <button
+                        type="button"
+                        id="policyModalClose"
+                        class="continue-btn">
+
+                        Close
+
+                    </button>
+
+                </div>
+
+            </div>
 
                       <!-- Success Popup -->
 

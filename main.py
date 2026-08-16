@@ -481,6 +481,44 @@ def status():
 
 
 # ==========================================
+# Public Vendor Status
+# (used by the customer-facing frontend to
+# decide whether to show the maintenance page
+# and whether uploads should be allowed)
+# ==========================================
+
+@app.get("/vendor/{vendor_id}/status")
+def vendor_status(vendor_id: str):
+
+    vendor = get_vendor_by_id(vendor_id)
+
+    if vendor is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found."
+        )
+
+    maintenance = bool(get_vendor_maintenance(vendor_id))
+
+    settings = get_vendor_settings(vendor_id)
+
+    accept_orders = True
+
+    if settings is not None:
+        accept_orders = bool(
+            settings.get("accept_orders", True)
+        )
+
+    # Intentionally minimal: no shop name, owner info, email,
+    # phone, etc. This endpoint is public (no login) and only
+    # needs to answer "can a customer order right now?".
+    return {
+        "maintenance": maintenance,
+        "accept_orders": accept_orders
+    }
+
+
+# ==========================================
 # Upload API
 # ==========================================
 # ==========================================

@@ -16,8 +16,16 @@
             window.location.search
         );
 
+    // A vendor_id can come from the QR code link (URL param)
+    // or, for a returning customer in the same browser tab,
+    // from the session that script.js already saved.
+    // Previously this only checked the URL param, so a
+    // returning customer whose vendor_id had already been
+    // cleaned out of the URL was wrongly sent to the vendor
+    // signup page.
     const vendorId =
-        params.get("vendor_id");
+        params.get("vendor_id") ||
+        sessionStorage.getItem("serveprint_vendor_id");
 
     if (!vendorId) {
 

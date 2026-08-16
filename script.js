@@ -200,9 +200,43 @@ async function checkVendorMaintenance() {
 
         console.log("Vendor status:", data);
 
+        // ==========================================
+        // VENDOR IS IN MAINTENANCE
+        // ==========================================
+
+        if (Boolean(data.maintenance)) {
+
+            window.location.replace(
+                "maintenance.html"
+            );
+
+            return false;
+        }
+
+        // Vendor is online
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "Vendor maintenance check failed:",
+            error
+        );
+
+        // Don't incorrectly block customers
+        // if status API temporarily fails.
+        return true;
+    }
+}
 
 // ==========================================
 // CHECK VENDOR BEFORE UPLOAD
+// ==========================================
+// This used to be declared *inside* checkVendorMaintenance(),
+// which meant it was invisible everywhere else in this file and
+// every upload attempt failed with "verifyVendorBeforeUpload is
+// not defined". It now lives at the top level so uploadDocument()
+// can actually call it.
 // ==========================================
 
 async function verifyVendorBeforeUpload() {
@@ -259,34 +293,6 @@ async function verifyVendorBeforeUpload() {
     }
 
     return true;
-}
-        // ==========================================
-        // VENDOR IS IN MAINTENANCE
-        // ==========================================
-
-        if (Boolean(data.maintenance)) {
-
-            window.location.replace(
-    "maintenance.html"
-);
-
-            return false;
-        }
-
-        // Vendor is online
-        return true;
-
-    } catch (error) {
-
-        console.error(
-            "Vendor maintenance check failed:",
-            error
-        );
-
-        // Don't incorrectly block customers
-        // if status API temporarily fails.
-        return true;
-    }
 }
 
 checkVendorMaintenance().then(function(canContinue) {
@@ -708,8 +714,7 @@ payBtn.addEventListener(
             // --------------------------------------
             // Open Razorpay Checkout
             // --------------------------------------
-
-            const paymentResult =
+const paymentResult =
                 await new Promise(
                     function (resolve, reject) {
 
@@ -1592,3 +1597,4 @@ async function createPrintJob(jobId) {
     return await response.json();
 
 }
+                                       

@@ -158,10 +158,10 @@ def get_authenticated_vendor(
 # ==========================================
 
 class VendorSignup(BaseModel):
-    shop_name: str
     owner_name: str
     email: str
     password: str
+    shop_name: str = ""
     phone: str = ""
     address: str = ""
 
@@ -174,8 +174,13 @@ def vendor_signup(data: VendorSignup):
         data.password
     )
 
+    # Shop name is optional at signup - fall back to a
+    # friendly default instead of forcing the vendor to
+    # invent a shop name before they've decided one.
+    shop_name = data.shop_name.strip() or f"{data.owner_name.strip()}'s Print Shop"
+
     vendor_id = register_vendor(
-        shop_name=data.shop_name,
+        shop_name=shop_name,
         owner_name=data.owner_name,
         email=data.email,
         password_hash=password_hash,

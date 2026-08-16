@@ -81,6 +81,28 @@ const vendorId =
     document.getElementById("vendorId");
 
 // ================================
+// Terms / Privacy Modal
+// ================================
+
+const termsLink =
+    document.getElementById("termsLink");
+
+const privacyLink =
+    document.getElementById("privacyLink");
+
+const policyModal =
+    document.getElementById("policyModal");
+
+const policyModalTitle =
+    document.getElementById("policyModalTitle");
+
+const policyModalBody =
+    document.getElementById("policyModalBody");
+
+const policyModalClose =
+    document.getElementById("policyModalClose");
+
+// ================================
 // Utility Functions
 // ================================
 
@@ -254,17 +276,8 @@ function validateForm(){
     const addressValue =
     sanitizeInput(address.value);
 
-    if(shop===""){
-
-        showError(
-            "Please enter your shop name."
-        );
-
-        shopName.focus();
-
-        return false;
-
-    }
+    // Shop name is optional - if left blank, the backend
+    // will assign a default name automatically.
 
     if(owner===""){
 
@@ -586,6 +599,93 @@ document.addEventListener("keydown",function(e){
     }
 
 });
+
+// ================================
+// Terms & Privacy Content
+// ================================
+
+const TERMS_CONTENT = `
+    <h4>1. Your Print Shop Account</h4>
+    <p>By creating a vendor account you confirm that the shop
+    details you provide are accurate and that you are authorised
+    to operate the print shop being registered.</p>
+
+    <h4>2. Orders & Payments</h4>
+    <p>Customers pay for print jobs through ServePrint's payment
+    flow. You are responsible for fulfilling paid orders promptly
+    and keeping your shop's maintenance and order-acceptance
+    status up to date in your dashboard.</p>
+
+    <h4>3. Fair Use</h4>
+    <p>You agree not to misuse the platform, including uploading
+    unlawful content, attempting to access other vendors' data,
+    or interfering with the normal operation of the service.</p>
+
+    <h4>4. Account Suspension</h4>
+    <p>ServePrint may suspend accounts found to be in violation of
+    these terms or engaged in fraudulent activity.</p>
+`;
+
+const PRIVACY_CONTENT = `
+    <h4>Information We Collect</h4>
+    <p>We collect the shop, owner, and contact details you submit
+    at signup, along with order and queue data generated while you
+    use your vendor dashboard.</p>
+
+    <h4>How We Use It</h4>
+    <p>Your information is used to operate your vendor account,
+    process customer orders placed through your QR code, and show
+    you order/queue analytics.</p>
+
+    <h4>Sharing</h4>
+    <p>We do not sell your data. Customer-facing pages only ever
+    receive the minimum information needed to place an order -
+    your internal vendor ID is never shown to customers.</p>
+
+    <h4>Your Choices</h4>
+    <p>You can update your shop details from your dashboard at any
+    time, or contact support to request account deletion.</p>
+`;
+
+function openPolicyModal(title, contentHTML){
+
+    policyModalTitle.textContent = title;
+    policyModalBody.innerHTML = contentHTML;
+    policyModal.classList.add("active");
+
+}
+
+function closePolicyModal(){
+
+    policyModal.classList.remove("active");
+
+}
+
+if (termsLink) {
+    termsLink.addEventListener("click", function (e) {
+        e.preventDefault();
+        openPolicyModal("Terms & Conditions", TERMS_CONTENT);
+    });
+}
+
+if (privacyLink) {
+    privacyLink.addEventListener("click", function (e) {
+        e.preventDefault();
+        openPolicyModal("Privacy Policy", PRIVACY_CONTENT);
+    });
+}
+
+if (policyModalClose) {
+    policyModalClose.addEventListener("click", closePolicyModal);
+}
+
+if (policyModal) {
+    policyModal.addEventListener("click", function (e) {
+        if (e.target === policyModal) {
+            closePolicyModal();
+        }
+    });
+}
 
 // ================================
 // Page Loaded

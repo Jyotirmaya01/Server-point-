@@ -253,18 +253,9 @@ if (homeBtn) {
         "click",
         function () {
 
-            if (vendorId) {
-
-                window.location.href =
-                    "index.html?vendor_id=" +
-                    encodeURIComponent(vendorId);
-
-            } else {
-
-                window.location.href =
-                    "index.html";
-
-            }
+            // vendorId is already saved in sessionStorage, so
+            // there's no need to put it back in the visible URL.
+            window.location.href = "index.html";
 
         }
     );
