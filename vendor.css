@@ -879,70 +879,6 @@ form{
 }
 
 /* ==========================================
-   Optional Field Tag
-========================================== */
-
-.optional-tag{
-
-    color:#9ca3af;
-
-    font-weight:400;
-
-    font-size:12px;
-
-}
-
-/* ==========================================
-   Terms / Privacy Policy Modal
-========================================== */
-
-.policy-card{
-
-    max-width:520px;
-
-    text-align:left;
-
-}
-
-.policy-card h2{
-
-    text-align:center;
-
-}
-
-.policy-body{
-
-    max-height:50vh;
-
-    overflow-y:auto;
-
-    color:#374151;
-
-    font-size:14px;
-
-    line-height:1.6;
-
-    margin-bottom:20px;
-
-    padding-right:6px;
-
-}
-
-.policy-body h4{
-
-    color:#111827;
-
-    margin:14px 0 6px;
-
-}
-
-.policy-body h4:first-child{
-
-    margin-top:0;
-
-}
-
-/* ==========================================
    Vendor ID Box
 ========================================== */
 
@@ -1011,6 +947,42 @@ form{
     background:#059669;
 
 }
+
+/* ==========================================
+   Secondary Link Button
+   (e.g. "Not you? Log out")
+========================================== */
+
+.secondary-link-btn{
+
+    width:100%;
+
+    margin-top:10px;
+
+    padding:10px;
+
+    border:none;
+
+    background:transparent;
+
+    color:#6b7280;
+
+    font-size:13px;
+
+    font-weight:500;
+
+    text-decoration:underline;
+
+    cursor:pointer;
+
+}
+
+.secondary-link-btn:hover{
+
+    color:#111827;
+
+}
+
 
 /* ==========================================
    Footer

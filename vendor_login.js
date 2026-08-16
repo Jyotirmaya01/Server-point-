@@ -50,6 +50,18 @@ document.getElementById("loginSuccessPopup");
 const shopNameDisplay =
 document.getElementById("shopNameDisplay");
 
+const welcomeBackOverlay =
+document.getElementById("welcomeBackOverlay");
+
+const welcomeBackShopName =
+document.getElementById("welcomeBackShopName");
+
+const welcomeBackContinue =
+document.getElementById("welcomeBackContinue");
+
+const welcomeBackLogout =
+document.getElementById("welcomeBackLogout");
+
 // =========================================================
 // Helpers
 // =========================================================
@@ -276,7 +288,13 @@ function getVendorSession(){
 
 
 // =========================================================
-// Auto Login
+// Auto Login ("Remember Me")
+// =========================================================
+// Previously this silently redirected straight to the
+// dashboard with zero visual feedback, which made it look
+// like the login form itself was broken. It now shows a
+// clear "Welcome Back" screen with an explicit way to log
+// out and see the real login form again.
 // =========================================================
 
 window.addEventListener("load", function () {
@@ -287,8 +305,7 @@ window.addEventListener("load", function () {
 
     if (session && localStorage.getItem("remember_vendor") === "true") {
 
-        window.location.href = "vendor_dashboard.html";
-
+        showWelcomeBack(session);
         return;
 
     }
@@ -296,6 +313,46 @@ window.addEventListener("load", function () {
     email.focus();
 
 });
+
+function showWelcomeBack(session) {
+
+    if (welcomeBackShopName) {
+        welcomeBackShopName.textContent =
+            session.shop_name || "Print Shop";
+    }
+
+    if (welcomeBackOverlay) {
+        welcomeBackOverlay.classList.add("active");
+    }
+
+}
+
+if (welcomeBackContinue) {
+
+    welcomeBackContinue.addEventListener("click", function () {
+
+        window.location.href = "vendor_dashboard.html";
+
+    });
+
+}
+
+if (welcomeBackLogout) {
+
+    welcomeBackLogout.addEventListener("click", function () {
+
+        localStorage.removeItem("serveprint_vendor");
+        localStorage.removeItem("remember_vendor");
+
+        if (welcomeBackOverlay) {
+            welcomeBackOverlay.classList.remove("active");
+        }
+
+        email.focus();
+
+    });
+
+}
 
 // =========================================================
 // Login API
@@ -423,7 +480,7 @@ function redirectDashboard() {
 
         "vendor_dashboard.html";
 
-    }, 2000);
+    }, 3000);
 
 }
 
