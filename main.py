@@ -1,3 +1,5 @@
+# main.py
+
 import logging
 import re
 import math
@@ -10,7 +12,6 @@ from datetime import datetime
 import asyncio
 import shutil
 import uuid
-
 import razorpay
 
 from fastapi import (
@@ -23,6 +24,11 @@ from fastapi import (
     Header
 )
 
+from vendor_routes import (
+    router as vendor_router,
+    get_authenticated_vendor
+)
+
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -33,11 +39,6 @@ from pptx import Presentation
 from docx import Document
 from docx.oxml.ns import qn
 import openpyxl
-
-from vendor_routes import (
-    router as vendor_router,
-    get_authenticated_vendor
-)
 
 from vendor_database import (
     get_vendor_by_id,
@@ -74,18 +75,17 @@ from database import (
 )
 
 
-# ==========================================
-# FastAPI
-# ==========================================
+# ============================================================
+# FASTAPI APP
+# ============================================================
 
 app = FastAPI(
     title="ServePrint API",
     description="Backend API for ServePrint",
-    version="1.2.0"
+    version="1.0.0"
 )
 
 app.include_router(vendor_router)
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -95,24 +95,40 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# ==========================================
-# Background Cleanup
-# ==========================================
+# ============================================================
+# FOLDERS
+# ============================================================
+
+UPLOAD_FOLDER = Path("uploads")
+UPLOAD_FOLDER.mkdir(exist_ok=True)
+
+LOG_FOLDER = Path("logs")
+LOG_FOLDER.mkdir(exist_ok=True)
+
+
+def cleanup_expired_uploads():
+    expired_files = cleanup_expired_jobs()
+
+    for filename in expired_files:
+        file_path = UPLOAD_FOLDER / filename
+
+        if file_path.exists():
+            file_path.unlink()
+
+
+# ============================================================
+# BACKGROUND CLEANUP
+# ============================================================
 
 async def cleanup_scheduler():
 
     while True:
 
         try:
-
             cleanup_expired_uploads()
-
-            logger.info(
-                "Expired jobs cleaned."
-            )
+            logger.info("Expired jobs cleaned.")
 
         except Exception as e:
-
             logger.error(
                 f"Cleanup Scheduler Error: {e}"
             )
@@ -131,9 +147,9 @@ async def startup_event():
     )
 
 
-# ==========================================
+# ============================================================
 # CORS
-# ==========================================
+# ============================================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -144,37 +160,9 @@ app.add_middleware(
 )
 
 
-# ==========================================
-# Folders
-# ==========================================
-
-UPLOAD_FOLDER = Path(
-    "uploads"
-)
-
-UPLOAD_FOLDER.mkdir(
-    exist_ok=True
-)
-
-
-LOG_FOLDER = Path(
-    "logs"
-)
-
-LOG_FOLDER.mkdir(
-    exist_ok=True
-)
-
-
-def cleanup_expired_uploads():
-    expired_files = cleanup_expired_jobs()
-
-    for filename in expired_files:
-        file_path = UPLOAD_FOLDER / filename
-
-        if file_path.exists():
-            file_path.unlink()
-
+# ============================================================
+# STATIC UPLOADS
+# ============================================================
 
 app.mount(
     "/uploads",
@@ -185,12 +173,13 @@ app.mount(
 )
 
 
-# ==========================================
-# File Types
-# ==========================================
+# ============================================================
+# FILE TYPES
+# ============================================================
 
 ALLOWED_EXTENSIONS = {
     ".pdf",
+
     ".jpg",
     ".jpeg",
     ".png",
@@ -201,6 +190,7 @@ ALLOWED_EXTENSIONS = {
     ".tiff",
     ".heic",
     ".heif",
+
     ".docx",
     ".pptx",
     ".xlsx",
@@ -232,17 +222,14 @@ ALLOWED_MIME_TYPES = {
 }
 
 
-# ==========================================
-# Pricing
-# ==========================================
+# ============================================================
+# PRICING
+# ============================================================
 
 BW_PRICE_PER_PAGE = 2.0
-
 COLOR_PRICE_PER_PAGE = 10.0
 
-MAX_FILE_SIZE = (
-    20 * 1024 * 1024
-)
+MAX_FILE_SIZE = 20 * 1024 * 1024
 
 
 def calculate_price(
@@ -260,104 +247,15 @@ def calculate_price(
     return pages * copies * rate
 
 
-# ==========================================
-# Waiting Time
-# ==========================================
-
 def estimate_wait_time(
     queue_number: int
 ):
-
     return queue_number * 2
 
 
-# ==========================================
-# PDF PAGE COUNTER
-# ==========================================
-
-def count_pdf_pages(
-    filepath: Path
-) -> int:
-
-    try:
-
-        reader = PdfReader(
-            str(filepath)
-        )
-
-        total =
-            len(reader.pages)
-
-        if total < 1:
-
-            raise ValueError(
-                "PDF contains no pages."
-            )
-
-        logger.info(
-            f"PDF Pages: {total}"
-        )
-
-        return total
-
-    except Exception as error:
-
-        logger.exception(
-            "PDF page counting failed."
-        )
-
-        raise ValueError(
-            "Unable to read this PDF. "
-            "Please make sure the PDF is not corrupted or password protected."
-        ) from error
-
-
-# ==========================================
-# PPTX PAGE COUNTER
-# ==========================================
-
-def count_pptx_pages(
-    filepath: Path
-) -> int:
-
-    try:
-
-        presentation =
-            Presentation(
-                str(filepath)
-            )
-
-        total =
-            len(
-                presentation.slides
-            )
-
-        if total < 1:
-
-            raise ValueError(
-                "Presentation contains no slides."
-            )
-
-        logger.info(
-            f"PPTX Slides: {total}"
-        )
-
-        return total
-
-    except Exception as error:
-
-        logger.exception(
-            "PPTX page counting failed."
-        )
-
-        raise ValueError(
-            "Unable to read this PowerPoint file."
-        ) from error
-
-
-# ==========================================
+# ============================================================
 # DOCX PAGE COUNTER
-# ==========================================
+# ============================================================
 
 def count_docx_pages(
     filepath: Path
@@ -375,8 +273,7 @@ def count_docx_pages(
                 "docProps/app.xml"
             ) as f:
 
-                tree =
-                    ET.parse(f)
+                tree = ET.parse(f)
 
                 ns = {
                     "ep":
@@ -384,11 +281,10 @@ def count_docx_pages(
                     "officeDocument/2006/extended-properties"
                 }
 
-                pages_el =
-                    tree.find(
-                        "ep:Pages",
-                        ns
-                    )
+                pages_el = tree.find(
+                    "ep:Pages",
+                    ns
+                )
 
                 if (
                     pages_el is not None
@@ -398,34 +294,28 @@ def count_docx_pages(
                     pages_el.text.isdigit()
                 ):
 
-                    app_xml_pages =
-                        int(
-                            pages_el.text
-                        )
+                    app_xml_pages = int(
+                        pages_el.text
+                    )
 
-    except Exception as error:
+    except Exception as e:
 
         logger.warning(
-            f"DOCX app.xml page count unavailable: {error}"
+            f"DOCX app.xml page count unavailable: {e}"
         )
 
 
     page_break_pages = 0
-
     word_count_pages = 0
-
 
     try:
 
-        document =
-            Document(
-                str(filepath)
-            )
+        document = Document(
+            str(filepath)
+        )
 
         page_breaks = 0
-
         word_count = 0
-
 
         for paragraph in document.paragraphs:
 
@@ -450,42 +340,50 @@ def count_docx_pages(
                         page_breaks += 1
 
 
-        page_break_pages =
-            page_breaks + 1
+        if page_breaks > 0:
 
-        word_count_pages =
-            max(
+            page_break_pages = (
+                page_breaks + 1
+            )
+
+
+        if word_count > 0:
+
+            word_count_pages = max(
                 1,
-                math.ceil(
+                round(
                     word_count / 400
                 )
             )
 
-    except Exception as error:
+    except Exception as e:
 
-        logger.warning(
-            f"DOCX parsing failed: {error}"
+        logger.error(
+            f"DOCX fallback page count failed: {e}"
         )
 
 
-    result =
-        max(
-            1,
+    candidates = [
+        p
+        for p in (
             app_xml_pages,
             page_break_pages,
             word_count_pages
         )
+        if p > 0
+    ]
 
-    logger.info(
-        f"DOCX Pages: {result}"
+
+    return (
+        max(candidates)
+        if candidates
+        else 1
     )
 
-    return result
 
-
-# ==========================================
+# ============================================================
 # XLSX PAGE COUNTER
-# ==========================================
+# ============================================================
 
 def count_xlsx_pages(
     filepath: Path
@@ -493,39 +391,34 @@ def count_xlsx_pages(
 
     try:
 
-        workbook =
-            openpyxl.load_workbook(
-                filepath,
-                read_only=True,
-                data_only=True
-            )
+        workbook = openpyxl.load_workbook(
+            str(filepath),
+            read_only=True
+        )
 
-        sheets =
-            len(
-                workbook.sheetnames
-            )
+        sheet_count = len(
+            workbook.sheetnames
+        )
 
         workbook.close()
 
         return max(
             1,
-            sheets
+            sheet_count
         )
 
-    except Exception as error:
+    except Exception as e:
 
-        logger.exception(
-            "XLSX page counting failed."
+        logger.error(
+            f"XLSX page count failed: {e}"
         )
 
-        raise ValueError(
-            "Unable to read this Excel file."
-        ) from error
+        return 1
 
 
-# ==========================================
+# ============================================================
 # TXT PAGE COUNTER
-# ==========================================
+# ============================================================
 
 def count_txt_pages(
     filepath: Path
@@ -533,88 +426,187 @@ def count_txt_pages(
 
     try:
 
-        text =
-            filepath.read_text(
-                encoding="utf-8",
-                errors="ignore"
-            )
+        text = filepath.read_text(
+            encoding="utf-8",
+            errors="ignore"
+        )
 
-        lines =
-            text.splitlines()
+        chars = len(text)
 
-        lines_per_page = 55
+        if chars == 0:
+            return 1
 
         return max(
             1,
             math.ceil(
-                len(lines) /
-                lines_per_page
+                chars / 3000
             )
         )
 
-    except Exception as error:
+    except Exception as e:
 
-        logger.exception(
-            "TXT page counting failed."
+        logger.error(
+            f"TXT page count failed: {e}"
         )
 
-        raise ValueError(
-            "Unable to read this text file."
-        ) from error
+        return 1
 
 
-# ==========================================
+# ============================================================
 # UNIVERSAL PAGE COUNTER
-# ==========================================
+# ============================================================
 
 def count_pages(
     filepath: Path
-) -> int:
+):
 
-    extension =
-        filepath.suffix.lower()
+    ext = filepath.suffix.lower()
 
 
-    if extension == ".pdf":
+    # ----------------------------
+    # PDF
+    # ----------------------------
 
-        return count_pdf_pages(
+    if ext == ".pdf":
+
+        try:
+
+            reader = PdfReader(
+                str(filepath),
+                strict=False
+            )
+
+            if reader.is_encrypted:
+
+                try:
+                    reader.decrypt("")
+
+                except Exception:
+                    pass
+
+
+            pages = len(
+                reader.pages
+            )
+
+
+            if pages < 1:
+
+                raise ValueError(
+                    "PDF contains no pages."
+                )
+
+
+            logger.info(
+                f"PDF Pages: {pages}"
+            )
+
+            return pages
+
+
+        except Exception as e:
+
+            logger.exception(
+                f"PDF ERROR: {e}"
+            )
+
+            raise ValueError(
+                "We could not read this PDF. "
+                "Please try a different PDF or "
+                "re-save the file."
+            ) from e
+
+
+    # ----------------------------
+    # PPTX
+    # ----------------------------
+
+    if ext == ".pptx":
+
+        try:
+
+            presentation = Presentation(
+                str(filepath)
+            )
+
+            slides = len(
+                presentation.slides
+            )
+
+            logger.info(
+                f"PPTX Slides: {slides}"
+            )
+
+            return max(
+                1,
+                slides
+            )
+
+        except Exception as e:
+
+            logger.error(
+                f"PPTX ERROR: {e}"
+            )
+
+            return 1
+
+
+    # ----------------------------
+    # DOCX
+    # ----------------------------
+
+    if ext == ".docx":
+
+        pages = count_docx_pages(
             filepath
         )
 
+        logger.info(
+            f"DOCX Pages: {pages}"
+        )
 
-    if extension == ".pptx":
+        return pages
 
-        return count_pptx_pages(
+
+    # ----------------------------
+    # XLSX
+    # ----------------------------
+
+    if ext == ".xlsx":
+
+        pages = count_xlsx_pages(
             filepath
         )
 
+        logger.info(
+            f"XLSX Pages: {pages}"
+        )
 
-    if extension == ".docx":
+        return pages
 
-        return count_docx_pages(
+
+    # ----------------------------
+    # TXT
+    # ----------------------------
+
+    if ext == ".txt":
+
+        pages = count_txt_pages(
             filepath
         )
 
-
-    if extension == ".xlsx":
-
-        return count_xlsx_pages(
-            filepath
+        logger.info(
+            f"TXT Pages: {pages}"
         )
 
-
-    if extension == ".txt":
-
-        return count_txt_pages(
-            filepath
-        )
+        return pages
 
 
-    /*
-     * Images are exactly one printable page.
-     */
+    # ----------------------------
+    # Images
+    # ----------------------------
 
-    if extension in {
+    if ext in {
         ".jpg",
         ".jpeg",
         ".png",
@@ -630,27 +622,20 @@ def count_pages(
         return 1
 
 
-    raise ValueError(
-        "Unable to determine file page count."
-    )
+    return 1
 
 
-# ==========================================
-# Basic APIs
-# ==========================================
+# ============================================================
+# BASIC APIs
+# ============================================================
 
 @app.get("/")
 def home():
 
     return {
-        "project":
-            "ServePrint",
-
-        "status":
-            "Running",
-
-        "version":
-            "1.2.0"
+        "project": "ServePrint",
+        "status": "Running",
+        "version": "1.0.0"
     }
 
 
@@ -658,14 +643,9 @@ def home():
 def health():
 
     return {
-        "server":
-            "Online",
-
-        "printer":
-            "Waiting",
-
-        "database":
-            "Connected"
+        "server": "Online",
+        "printer": "Waiting",
+        "database": "Connected"
     }
 
 
@@ -673,24 +653,21 @@ def health():
 def status():
 
     return {
-        "printer":
-            "Offline",
-
-        "queue":
-            0,
-
-        "jobs":
-            0
+        "printer": "Offline",
+        "queue": 0,
+        "jobs": 0
     }
 
 
-# ==========================================
+# ============================================================
 # PUBLIC VENDOR STATUS
 #
-# IMPORTANT:
-# Never return vendor ID,
-# shop name, email, phone etc.
-# ==========================================
+# Customer receives ONLY:
+# maintenance
+# accept_orders
+#
+# Vendor ID is NOT returned.
+# ============================================================
 
 @app.get(
     "/vendor/{vendor_id}/status"
@@ -699,31 +676,28 @@ def vendor_status(
     vendor_id: str
 ):
 
-    vendor =
-        get_vendor_by_id(
-            vendor_id
-        )
+    vendor = get_vendor_by_id(
+        vendor_id
+    )
 
     if vendor is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Shop not found."
+            detail="Vendor not found."
         )
 
 
-    maintenance =
-        bool(
-            get_vendor_maintenance(
-                vendor_id
-            )
-        )
-
-
-    settings =
-        get_vendor_settings(
+    maintenance = bool(
+        get_vendor_maintenance(
             vendor_id
         )
+    )
+
+
+    settings = get_vendor_settings(
+        vendor_id
+    )
 
 
     accept_orders = True
@@ -731,17 +705,15 @@ def vendor_status(
 
     if settings is not None:
 
-        accept_orders =
-            bool(
-                settings.get(
-                    "accept_orders",
-                    True
-                )
+        accept_orders = bool(
+            settings.get(
+                "accept_orders",
+                True
             )
+        )
 
 
     return {
-
         "maintenance":
             maintenance,
 
@@ -750,85 +722,78 @@ def vendor_status(
     }
 
 
-# ==========================================
+# ============================================================
 # UPLOAD API
-# ==========================================
+# ============================================================
 
 @app.post("/upload")
 async def upload_file(
 
-    vendor_id: str =
-        Form(...),
+    vendor_id: str = Form(...),
 
-    file: UploadFile =
-        File(...),
+    file: UploadFile = File(...),
 
-    copies: int =
-        Form(1),
+    copies: int = Form(1),
 
-    print_type: str =
-        Form("bw"),
+    print_type: str = Form("bw"),
 
-    paper_size: str =
-        Form("A4"),
+    paper_size: str = Form("A4"),
 
-    page_range: str =
-        Form("All")
+    page_range: str = Form("All")
 ):
 
-    # --------------------------------------
-    # Vendor validation
-    # --------------------------------------
+    # ----------------------------
+    # Vendor
+    # ----------------------------
 
-    vendor =
-        get_vendor_by_id(
-            vendor_id
-        )
+    vendor = get_vendor_by_id(
+        vendor_id
+    )
 
     if vendor is None:
 
         raise HTTPException(
             status_code=404,
-            detail="Shop not found."
+            detail="Vendor not found."
         )
 
 
-    # --------------------------------------
+    # ----------------------------
     # Maintenance
-    # --------------------------------------
+    # ----------------------------
 
-    if get_vendor_maintenance(
+    maintenance = get_vendor_maintenance(
         vendor_id
-    ):
+    )
+
+    if maintenance:
 
         raise HTTPException(
             status_code=503,
             detail=(
                 "This shop is currently "
-                "under maintenance."
+                "under maintenance. "
+                "Please try again later."
             )
         )
 
 
-    # --------------------------------------
-    # Accept orders
-    # --------------------------------------
+    # ----------------------------
+    # Accept Orders
+    # ----------------------------
 
-    settings =
-        get_vendor_settings(
-            vendor_id
-        )
-
+    settings = get_vendor_settings(
+        vendor_id
+    )
 
     if settings is not None:
 
-        accept_orders =
-            bool(
-                settings.get(
-                    "accept_orders",
-                    True
-                )
+        accept_orders = bool(
+            settings.get(
+                "accept_orders",
+                True
             )
+        )
 
         if not accept_orders:
 
@@ -841,9 +806,9 @@ async def upload_file(
             )
 
 
-    # --------------------------------------
+    # ----------------------------
     # Copies
-    # --------------------------------------
+    # ----------------------------
 
     if copies < 1:
 
@@ -861,12 +826,13 @@ async def upload_file(
         )
 
 
-    # --------------------------------------
-    # Page range
-    # --------------------------------------
+    # ----------------------------
+    # Page Range
+    # ----------------------------
 
-    page_range =
+    page_range = (
         page_range.strip()
+    )
 
 
     if page_range == "":
@@ -879,8 +845,7 @@ async def upload_file(
 
     if page_range.lower() != "all":
 
-        pattern =
-            r"^[0-9,\-\s]+$"
+        pattern = r"^[0-9,\-\s]+$"
 
         if not re.match(
             pattern,
@@ -893,9 +858,9 @@ async def upload_file(
             )
 
 
-    # --------------------------------------
-    # Filename
-    # --------------------------------------
+    # ----------------------------
+    # File Name
+    # ----------------------------
 
     if not file.filename:
 
@@ -905,10 +870,9 @@ async def upload_file(
         )
 
 
-    extension =
-        Path(
-            file.filename
-        ).suffix.lower()
+    extension = Path(
+        file.filename
+    ).suffix.lower()
 
 
     if extension not in ALLOWED_EXTENSIONS:
@@ -919,16 +883,17 @@ async def upload_file(
         )
 
 
-    # --------------------------------------
-    # Block videos
-    # --------------------------------------
+    # ----------------------------
+    # Video Protection
+    # ----------------------------
 
-    if (
-        file.content_type
-        and
-        file.content_type.startswith(
-            "video/"
-        )
+    content_type = (
+        file.content_type or ""
+    ).lower().strip()
+
+
+    if content_type.startswith(
+        "video/"
     ):
 
         raise HTTPException(
@@ -937,37 +902,36 @@ async def upload_file(
         )
 
 
-    # --------------------------------------
-    # MIME validation
-    # --------------------------------------
+    # ----------------------------
+    # MIME
+    # ----------------------------
 
     if (
-        file.content_type
+        content_type
         and
-        file.content_type
-        not in ALLOWED_MIME_TYPES
+        content_type not in ALLOWED_MIME_TYPES
+        and
+        not content_type.startswith(
+            "image/"
+        )
+        and
+        content_type !=
+        "application/octet-stream"
     ):
 
-        /*
-         * Some Android browsers return
-         * an empty or unusual MIME type.
-         *
-         * Extension remains the primary
-         * validation mechanism.
-         */
-
-        if file.content_type != "":
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Unsupported file format."
-                )
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Unsupported file type. "
+                "Please upload a PDF, image, "
+                "DOCX, PPTX, XLSX or TXT file."
             )
+        )
 
 
-    # --------------------------------------
-    # Print type
-    # --------------------------------------
+    # ----------------------------
+    # Print Type
+    # ----------------------------
 
     if print_type not in [
         "bw",
@@ -980,27 +944,28 @@ async def upload_file(
         )
 
 
-    # --------------------------------------
-    # Generate Job ID
-    # --------------------------------------
+    # ----------------------------
+    # Job
+    # ----------------------------
 
-    job_id =
-        str(
-            uuid.uuid4()
-        )
+    job_id = str(
+        uuid.uuid4()
+    )
 
 
-    filename =
+    filename = (
         f"{job_id}{extension}"
+    )
 
 
-    filepath =
+    filepath = (
         UPLOAD_FOLDER / filename
+    )
 
 
-    # --------------------------------------
-    # Save file
-    # --------------------------------------
+    # ----------------------------
+    # Save
+    # ----------------------------
 
     try:
 
@@ -1014,7 +979,7 @@ async def upload_file(
                 buffer
             )
 
-    except Exception as error:
+    except Exception as e:
 
         logger.exception(
             "File saving failed."
@@ -1028,27 +993,30 @@ async def upload_file(
             detail=(
                 "Unable to save the uploaded file."
             )
-        )
+        ) from e
 
 
-    # --------------------------------------
-    # File size
-    # --------------------------------------
+    # ----------------------------
+    # Size
+    # ----------------------------
 
     try:
 
-        file_size =
+        file_size = (
             filepath.stat().st_size
+        )
 
-    except Exception:
+    except Exception as e:
 
         if filepath.exists():
             filepath.unlink()
 
         raise HTTPException(
             status_code=500,
-            detail="Unable to read uploaded file."
-        )
+            detail=(
+                "Unable to read uploaded file."
+            )
+        ) from e
 
 
     if file_size <= 0:
@@ -1075,19 +1043,20 @@ async def upload_file(
         )
 
 
-    # --------------------------------------
-    # Count pages
-    # --------------------------------------
+    # ----------------------------
+    # Count Pages
+    # ----------------------------
 
     try:
 
-        total_pages =
+        total_pages = (
             await run_in_threadpool(
                 count_pages,
                 filepath
             )
+        )
 
-    except ValueError as error:
+    except ValueError as e:
 
         filepath.unlink(
             missing_ok=True
@@ -1095,13 +1064,14 @@ async def upload_file(
 
         raise HTTPException(
             status_code=400,
-            detail=str(error)
-        )
+            detail=str(e)
+        ) from e
 
-    except Exception as error:
+
+    except Exception as e:
 
         logger.exception(
-            "Unexpected page counting error."
+            "File processing failed."
         )
 
         filepath.unlink(
@@ -1109,12 +1079,13 @@ async def upload_file(
         )
 
         raise HTTPException(
-            status_code=400,
+            status_code=500,
             detail=(
-                "Unable to read this file. "
+                "The server could not "
+                "process this file. "
                 "Please try another file."
             )
-        )
+        ) from e
 
 
     if total_pages < 1:
@@ -1125,7 +1096,10 @@ async def upload_file(
 
         raise HTTPException(
             status_code=400,
-            detail="The file contains no printable pages."
+            detail=(
+                "The file contains "
+                "no printable pages."
+            )
         )
 
 
@@ -1134,30 +1108,28 @@ async def upload_file(
     )
 
 
-    # --------------------------------------
-    # Not paid yet
-    # --------------------------------------
+    # ----------------------------
+    # Queue
+    # ----------------------------
 
     queue_number = 0
-
     waiting_time = 0
 
 
-    # --------------------------------------
-    # Calculate price
-    # --------------------------------------
+    # ----------------------------
+    # Price
+    # ----------------------------
 
-    total_amount =
-        calculate_price(
-            pages=total_pages,
-            copies=copies,
-            print_type=print_type
-        )
+    total_amount = calculate_price(
+        pages=total_pages,
+        copies=copies,
+        print_type=print_type
+    )
 
 
-    # --------------------------------------
-    # Save database
-    # --------------------------------------
+    # ----------------------------
+    # Database
+    # ----------------------------
 
     try:
 
@@ -1188,7 +1160,8 @@ async def upload_file(
             job_id
         )
 
-    except Exception as error:
+
+    except Exception as e:
 
         logger.exception(
             "Database job creation failed."
@@ -1201,17 +1174,17 @@ async def upload_file(
         raise HTTPException(
             status_code=500,
             detail=(
-                "Unable to create the print job. "
-                "Please try again."
+                "Unable to create the "
+                "print job. Please try again."
             )
-        )
+        ) from e
 
 
-    # --------------------------------------
-    # CUSTOMER RESPONSE
+    # ----------------------------
+    # Customer Response
     #
-    # Vendor ID is intentionally NOT returned.
-    # --------------------------------------
+    # NO vendor_id
+    # ----------------------------
 
     return {
 
@@ -1234,7 +1207,7 @@ async def upload_file(
             datetime.now().isoformat(),
 
         "queue_number":
-            queue_number,
+            0,
 
         "total_pages":
             total_pages,
@@ -1265,20 +1238,17 @@ async def upload_file(
     }
 
 
-# ==========================================
+# ============================================================
 # PRINT JOB
-# ==========================================
+# ============================================================
 
 class PrintJobRequest(
     BaseModel
 ):
 
     job_id: str
-
     copies: int
-
     print_type: str
-
     paper_size: str
 
     orientation: Optional[str] = (
@@ -1302,6 +1272,7 @@ def create_print_job(
         page_range=request.page_range
     )
 
+
     return {
 
         "success":
@@ -1314,9 +1285,9 @@ def create_print_job(
             request.job_id
     }
 
-# ==========================================
+# ============================================================
 # UPDATE EXISTING JOB
-# ==========================================
+# ============================================================
 
 @app.put(
     "/jobs/{job_id}"
@@ -1328,17 +1299,16 @@ def update_existing_job(
     request: PrintJobRequest
 ):
 
-    job =
-        get_print_job(
-            job_id
-        )
+    job = get_print_job(
+        job_id
+    )
 
 
     if not job:
 
         raise HTTPException(
             status_code=404,
-            detail="Job not found."
+            detail="Job not found"
         )
 
 
@@ -1354,16 +1324,16 @@ def update_existing_job(
         )
 
 
-    total_pages =
-        job["total_pages"]
+    total_pages = job[
+        "total_pages"
+    ]
 
 
-    total_amount =
-        calculate_price(
-            pages=total_pages,
-            copies=request.copies,
-            print_type=request.print_type
-        )
+    total_amount = calculate_price(
+        pages=total_pages,
+        copies=request.copies,
+        print_type=request.print_type
+    )
 
 
     update_print_job(
@@ -1377,15 +1347,13 @@ def update_existing_job(
 
 
     update_job_details(
-        job_id=job_id,
-        total_pages=total_pages,
-        total_amount=total_amount,
-        queue_number=job[
-            "queue_number"
-        ],
-        copies=request.copies,
-        print_type=request.print_type,
-        paper_size=request.paper_size
+        job_id,
+        total_pages,
+        total_amount,
+        job["queue_number"],
+        request.copies,
+        request.print_type,
+        request.paper_size
     )
 
 
@@ -1410,9 +1378,8 @@ def update_existing_job(
             max(
                 0,
                 (
-                    job[
-                        "queue_number"
-                    ] - 1
+                    job["queue_number"]
+                    - 1
                 ) * 2
             ),
 
@@ -1421,9 +1388,9 @@ def update_existing_job(
     }
 
 
-# ==========================================
-# SINGLE JOB
-# ==========================================
+# ============================================================
+# GET SINGLE JOB
+# ============================================================
 
 @app.get(
     "/jobs/{job_id}"
@@ -1432,10 +1399,87 @@ def fetch_job(
     job_id: str
 ):
 
-    job =
-        get_print_job(
-            job_id
+    job = get_print_job(
+        job_id
+    )
+
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job Not Found"
         )
+
+
+    job = dict(job)
+
+
+    job["orders_ahead"] = max(
+        0,
+        job["queue_number"] - 1
+    )
+
+
+    job[
+        "estimated_wait_time"
+    ] = (
+        job["orders_ahead"] * 2
+    )
+
+
+    # Never expose vendor ID
+    job.pop(
+        "vendor_id",
+        None
+    )
+
+
+    return job
+
+
+# ============================================================
+# GET ALL JOBS
+# ============================================================
+
+@app.get("/jobs")
+def fetch_all_jobs():
+
+    jobs = get_all_print_jobs()
+
+    result = []
+
+    for job in jobs:
+
+        item = dict(job)
+
+        item.pop(
+            "vendor_id",
+            None
+        )
+
+        result.append(
+            item
+        )
+
+    return result
+
+
+# ============================================================
+# PAYMENT STATUS
+# ============================================================
+
+@app.put(
+    "/jobs/{job_id}/payment/{status}"
+)
+def update_job_payment_status(
+    job_id: str,
+    status: str
+):
+
+    job = get_print_job(
+        job_id
+    )
 
 
     if not job:
@@ -1446,60 +1490,1200 @@ def fetch_job(
         )
 
 
-    job =
-        dict(job)
-
-
-    job["orders_ahead"] =
-        max(
-            0,
-            job["queue_number"] - 1
-        )
-
-
-    job[
-        "estimated_wait_time"
-    ] =
-        job["orders_ahead"] * 2
-
-
-    /*
-     * Remove internal vendor identifier
-     * from customer-facing job response.
-     */
-
-    job.pop(
-        "vendor_id",
-        None
-    )
-
-
-    return job
-
-
-# ==========================================
-# ALL JOBS
-# ==========================================
-
-@app.get("/jobs")
-def fetch_all_jobs():
-
-    jobs =
-        get_all_print_jobs()
-
-    return [
-        {
-            key: value
-            for key, value in dict(job).items()
-            if key != "vendor_id"
-        }
-        for job in jobs
+    allowed = [
+        "Pending",
+        "Paid",
+        "Failed"
     ]
 
 
-# ==========================================
+    if status not in allowed:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid payment status."
+            )
+        )
+
+
+    update_payment_status(
+        job_id,
+        status
+    )
+
+
+    return {
+
+        "success":
+            True,
+
+        "job_id":
+            job_id,
+
+        "payment_status":
+            status
+    }
+
+
+# ============================================================
+# PRINTER STATUS
+# ============================================================
+
+@app.put(
+    "/jobs/{job_id}/printer/{status}"
+)
+def update_job_printer_status(
+    job_id: str,
+    status: str
+):
+
+    job = get_print_job(
+        job_id
+    )
+
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+
+    allowed = [
+        "Pending Payment",
+        "Waiting",
+        "Printing",
+        "Completed",
+        "Failed"
+    ]
+
+
+    if status not in allowed:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid printer status."
+            )
+        )
+
+
+    update_printer_status(
+        job_id,
+        status
+    )
+
+
+    return {
+
+        "success":
+            True,
+
+        "job_id":
+            job_id,
+
+        "printer_status":
+            status
+    }
+
+# ============================================================
+# CREATE RAZORPAY ORDER
+# ============================================================
+
+@app.post(
+    "/payment/create/{job_id}"
+)
+def create_razorpay_order(
+    job_id: str
+):
+
+    job = get_print_job(
+        job_id
+    )
+
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+
+    if job[
+        "payment_status"
+    ] == "Paid":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "This job has already been paid."
+            )
+        )
+
+
+    if job[
+        "payment_status"
+    ] != "Pending":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment cannot be created "
+                "from "
+                f"'{job['payment_status']}' "
+                "state."
+            )
+        )
+
+
+    # ----------------------------
+    # Vendor Credentials
+    # ----------------------------
+
+    settings = get_vendor_settings(
+        job["vendor_id"]
+    )
+
+
+    if settings is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Vendor settings not found."
+            )
+        )
+
+
+    key_id = (
+        settings.get(
+            "razorpay_key"
+        )
+        or ""
+    ).strip()
+
+
+    key_secret = (
+        settings.get(
+            "razorpay_secret"
+        )
+        or ""
+    ).strip()
+
+
+    if not key_id or not key_secret:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Razorpay is not configured "
+                "for this vendor."
+            )
+        )
+
+
+    amount_rupees = float(
+        job["total_amount"] or 0
+    )
+
+
+    amount_paise = int(
+        round(
+            amount_rupees * 100
+        )
+    )
+
+
+    if amount_paise < 100:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment amount must be "
+                "at least ₹1."
+            )
+        )
+
+
+    try:
+
+        client = razorpay.Client(
+            auth=(
+                key_id,
+                key_secret
+            )
+        )
+
+
+        order = client.order.create({
+
+            "amount":
+                amount_paise,
+
+            "currency":
+                "INR",
+
+            "receipt":
+                job_id[:40],
+
+            "notes": {
+                "job_id":
+                    job_id,
+
+                "vendor_id":
+                    job["vendor_id"]
+            }
+        })
+
+
+    except Exception as e:
+
+        logger.exception(
+            "Razorpay order creation failed."
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Unable to create "
+                "Razorpay order."
+            )
+        ) from e
+
+
+    razorpay_order_id = (
+        order.get("id")
+    )
+
+
+    if not razorpay_order_id:
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Razorpay did not return "
+                "an order ID."
+            )
+        )
+
+
+    save_razorpay_order(
+        job_id,
+        razorpay_order_id
+    )
+
+
+    # Vendor ID remains internal.
+    # Do not return it to customer.
+
+    return {
+
+        "success":
+            True,
+
+        "job_id":
+            job_id,
+
+        "razorpay_order_id":
+            razorpay_order_id,
+
+        "razorpay_key_id":
+            key_id,
+
+        "amount":
+            amount_paise,
+
+        "amount_rupees":
+            amount_rupees,
+
+        "currency":
+            "INR",
+
+        "payment_status":
+            "Pending"
+    }
+
+
+# ============================================================
+# RAZORPAY PAYMENT VERIFICATION
+# ============================================================
+
+class RazorpayPaymentVerification(
+    BaseModel
+):
+
+    razorpay_payment_id: str
+
+    razorpay_signature: str
+
+
+@app.post(
+    "/payment/verify/{job_id}"
+)
+def verify_razorpay_payment(
+
+    job_id: str,
+
+    data:
+        RazorpayPaymentVerification
+):
+
+    job = get_print_job(
+        job_id
+    )
+
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+
+    if job[
+        "payment_status"
+    ] == "Paid":
+
+        return {
+
+            "success":
+                True,
+
+            "job_id":
+                job_id,
+
+            "payment_status":
+                "Paid",
+
+            "queue_number":
+                job["queue_number"],
+
+            "message":
+                "Payment already completed."
+        }
+
+
+    if job[
+        "payment_status"
+    ] != "Pending":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment cannot be verified "
+                "from "
+                f"'{job['payment_status']}' "
+                "state."
+            )
+        )
+
+
+    razorpay_order_id = (
+        get_razorpay_order_id(
+            job_id
+        )
+    )
+
+
+    if not razorpay_order_id:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Razorpay order was not "
+                "created for this job."
+            )
+        )
+
+
+    settings = get_vendor_settings(
+        job["vendor_id"]
+    )
+
+
+    if settings is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Vendor settings not found."
+            )
+        )
+
+
+    key_id = (
+        settings.get(
+            "razorpay_key"
+        )
+        or ""
+    ).strip()
+
+
+    key_secret = (
+        settings.get(
+            "razorpay_secret"
+        )
+        or ""
+    ).strip()
+
+
+    if not key_id or not key_secret:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Razorpay is not configured "
+                "for this vendor."
+            )
+        )
+
+
+    try:
+
+        client = razorpay.Client(
+            auth=(
+                key_id,
+                key_secret
+            )
+        )
+
+
+        client.utility.verify_payment_signature({
+
+            "razorpay_order_id":
+                razorpay_order_id,
+
+            "razorpay_payment_id":
+                data.razorpay_payment_id,
+
+            "razorpay_signature":
+                data.razorpay_signature
+        })
+
+
+    except Exception:
+
+        logger.exception(
+            "Razorpay signature verification failed."
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid Razorpay payment signature."
+            )
+        )
+
+
+    try:
+
+        payment = client.payment.fetch(
+            data.razorpay_payment_id
+        )
+
+    except Exception:
+
+        logger.exception(
+            "Unable to fetch Razorpay payment."
+        )
+
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Unable to verify payment "
+                "status with Razorpay."
+            )
+        )
+
+
+    razorpay_payment_order_id = (
+        payment.get("order_id")
+    )
+
+
+    if (
+        razorpay_payment_order_id
+        != razorpay_order_id
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment does not belong "
+                "to this order."
+            )
+        )
+
+
+    expected_amount = int(
+        round(
+            float(
+                job["total_amount"] or 0
+            ) * 100
+        )
+    )
+
+
+    received_amount = int(
+        payment.get(
+            "amount",
+            0
+        )
+    )
+
+
+    if (
+        received_amount
+        != expected_amount
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail="Payment amount mismatch."
+        )
+
+
+    payment_status = (
+        payment.get("status")
+    )
+
+
+    if payment_status != "captured":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment is not captured. "
+                f"Current status: "
+                f"{payment_status}"
+            )
+        )
+
+
+    save_razorpay_payment(
+        job_id,
+        data.razorpay_payment_id,
+        data.razorpay_signature
+    )
+
+
+    try:
+
+        queue_number = (
+            assign_queue_after_payment(
+                job["vendor_id"],
+                job_id,
+                data.razorpay_payment_id
+            )
+        )
+
+    except ValueError as error:
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+
+
+    return {
+
+        "success":
+            True,
+
+        "job_id":
+            job_id,
+
+        "payment_id":
+            data.razorpay_payment_id,
+
+        "razorpay_order_id":
+            razorpay_order_id,
+
+        "payment_status":
+            "Paid",
+
+        "queue_number":
+            queue_number,
+
+        "estimated_wait_time":
+            max(
+                0,
+                (
+                    queue_number - 1
+                ) * 2
+            ),
+
+        "printer_status":
+            "Waiting"
+    }
+
+
+# ============================================================
+# PAYMENT FAILED
+# ============================================================
+
+@app.post(
+    "/payment/{job_id}/failed"
+)
+def payment_failed(
+    job_id: str
+):
+
+    job = get_print_job(
+        job_id
+    )
+
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+
+    if job[
+        "payment_status"
+    ] == "Paid":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment is already completed."
+            )
+        )
+
+
+    if job[
+        "payment_status"
+    ] == "Failed":
+
+        return {
+
+            "success":
+                True,
+
+            "job_id":
+                job_id,
+
+            "payment_status":
+                "Failed",
+
+            "message":
+                "Payment is already "
+                "marked as failed."
+        }
+
+
+    if job[
+        "payment_status"
+    ] != "Pending":
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Payment cannot be marked "
+                "failed from "
+                f"'{job['payment_status']}' "
+                "state."
+            )
+        )
+
+
+    mark_payment_failed(
+        job_id
+    )
+
+
+    return {
+
+        "success":
+            True,
+
+        "job_id":
+            job_id,
+
+        "payment_status":
+            "Failed",
+
+        "queue_number":
+            0,
+
+        "printer_status":
+            "Pending Payment",
+
+        "message":
+            "Payment failed. "
+            "No queue number assigned."
+    }
+
+# ============================================================
+# START PRINTING
+# ============================================================
+
+@app.post(
+    "/jobs/{job_id}/start"
+)
+def start_job(
+
+    job_id: str,
+
+    authorization:
+        str | None =
+        Header(default=None)
+):
+
+    vendor = get_authenticated_vendor(
+        authorization
+    )
+
+
+    job = get_print_job(
+        job_id
+    )
+
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+
+    if (
+        job["vendor_id"]
+        !=
+        vendor["vendor_id"]
+    ):
+
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "You are not authorized "
+                "to start this job."
+            )
+        )
+
+
+    start_printing(
+        job_id
+    )
+
+
+    return {
+
+        "success":
+            True,
+
+        "job_id":
+            job_id,
+
+        "printer_status":
+            "Printing"
+    }
+
+
+# ============================================================
+# COMPLETE PRINTING
+# ============================================================
+
+@app.post(
+    "/jobs/{job_id}/complete"
+)
+def complete_job(
+
+    job_id: str,
+
+    authorization:
+        str | None =
+        Header(default=None)
+):
+
+    vendor = get_authenticated_vendor(
+        authorization
+    )
+
+
+    job = get_print_job(
+        job_id
+    )
+
+
+    if not job:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found."
+        )
+
+
+    if (
+        job["vendor_id"]
+        !=
+        vendor["vendor_id"]
+    ):
+
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "You are not authorized "
+                "to complete this job."
+            )
+        )
+
+
+    complete_printing(
+        job_id
+    )
+
+
+    return {
+
+        "success":
+            True,
+
+        "job_id":
+            job_id,
+
+        "printer_status":
+            "Completed"
+    }
+
+
+# ============================================================
+# VENDOR DASHBOARD
+# ============================================================
+
+@app.get(
+    "/vendor/{vendor_id}/dashboard"
+)
+def vendor_dashboard(
+    vendor_id: str
+):
+
+    return get_vendor_dashboard(
+        vendor_id
+    )
+
+
+# ============================================================
+# VENDOR ORDERS
+# ============================================================
+
+@app.get(
+    "/vendor/{vendor_id}/orders"
+)
+def vendor_orders(
+    vendor_id: str
+):
+
+    return get_vendor_orders(
+        vendor_id
+    )
+
+
+# ============================================================
+# VENDOR ORDERS
+# ============================================================
+
+@app.get(
+    "/vendor/{vendor_id}/orders"
+)
+def vendor_orders(
+    vendor_id: str
+):
+
+    return get_vendor_orders(
+        vendor_id
+    )
+
+
+# ============================================================
+# VENDOR QUEUE
+# ============================================================
+
+@app.get(
+    "/vendor/{vendor_id}/queue"
+)
+def vendor_queue(
+    vendor_id: str
+):
+
+    return get_vendor_queue(
+        vendor_id
+    )
+
+
+# ============================================================
+# VENDOR QR
+# ============================================================
+
+@app.get(
+    "/vendor/{vendor_id}/qr"
+)
+def vendor_qr(
+    vendor_id: str
+):
+
+    vendor = get_vendor_by_id(
+        vendor_id
+    )
+
+
+    if vendor is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found"
+        )
+
+
+    frontend_url = (
+        "https://server-point-1vrst74ki-jyotirmaya01s-projects.vercel.app"
+    )
+
+
+    return {
+
+        "vendor_id":
+            vendor["vendor_id"],
+
+        "shop_name":
+            vendor["shop_name"],
+
+        "url":
+            (
+                f"{frontend_url}/"
+                f"?vendor_id="
+                f"{vendor['vendor_id']}"
+            )
+    }
+
+
+# ============================================================
+# VENDOR SETTINGS MODEL
+# ============================================================
+
+class VendorSettingsUpdate(
+    BaseModel
+):
+
+    shop_name: str
+
+    owner_name: str
+
+    phone: str
+
+    address: str
+
+    maintenance: bool
+
+    accept_orders: bool
+
+    razorpay_key: str = ""
+
+    razorpay_secret: str = ""
+
+    google_sheet_id: str = ""
+
+    service_email: str = ""
+
+    smtp_host: str = ""
+
+    smtp_port: int = 587
+
+    smtp_email: str = ""
+
+    smtp_password: str = ""
+
+
+# ============================================================
+# VENDOR SETTINGS
+# ============================================================
+
+@app.get(
+    "/vendor/{vendor_id}/settings"
+)
+def vendor_settings(
+    vendor_id: str
+):
+
+    settings = get_vendor_settings(
+        vendor_id
+    )
+
+
+    if settings is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Vendor settings not found."
+            )
+        )
+
+
+    return settings
+
+
+# ============================================================
+# UPDATE VENDOR SETTINGS
+# ============================================================
+
+@app.put(
+    "/vendor/{vendor_id}/settings"
+)
+def save_vendor_settings(
+
+    vendor_id: str,
+
+    data:
+        VendorSettingsUpdate
+):
+
+    update_vendor_settings(
+        vendor_id,
+        data
+    )
+
+
+    return {
+
+        "success":
+            True,
+
+        "message":
+            "Settings updated successfully."
+    }
+
+
+# ============================================================
+# VENDOR MAINTENANCE
+# ============================================================
+
+@app.post(
+    "/vendor/{vendor_id}/maintenance"
+)
+def set_vendor_maintenance(
+
+    vendor_id: str,
+
+    enabled: bool
+):
+
+    vendor = get_vendor_by_id(
+        vendor_id
+    )
+
+
+    if vendor is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found."
+        )
+
+
+    success = (
+        update_vendor_maintenance(
+            vendor_id,
+            enabled
+        )
+    )
+
+
+    if not success:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Vendor settings not found."
+            )
+        )
+
+
+    return {
+
+        "success":
+            True,
+
+        "vendor_id":
+            vendor_id,
+
+        "maintenance":
+            enabled
+    }
+
+
+# ============================================================
+# VENDOR ACCEPT ORDERS
+# ============================================================
+
+@app.post(
+    "/vendor/{vendor_id}/accept-orders"
+)
+def set_vendor_accept_orders(
+
+    vendor_id: str,
+
+    enabled: bool
+):
+
+    vendor = get_vendor_by_id(
+        vendor_id
+    )
+
+
+    if vendor is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Vendor not found."
+        )
+
+
+    success = (
+        update_vendor_accept_orders(
+            vendor_id,
+            enabled
+        )
+    )
+
+
+    if not success:
+
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Vendor settings not found."
+            )
+        )
+
+
+    return {
+
+        "success":
+            True,
+
+        "vendor_id":
+            vendor_id,
+
+        "accept_orders":
+            enabled
+    }
+
+
+# ============================================================
 # CUSTOMER VENDOR VALIDATION
-# ==========================================
+#
+# IMPORTANT:
+# vendor_id is NEVER returned.
+# ============================================================
 
 @app.get(
     "/customer/vendor/{vendor_id}/validate"
@@ -1508,10 +2692,9 @@ def validate_customer_vendor(
     vendor_id: str
 ):
 
-    vendor =
-        get_vendor_by_id(
-            vendor_id
-        )
+    vendor = get_vendor_by_id(
+        vendor_id
+    )
 
 
     if vendor is None:
@@ -1526,40 +2709,35 @@ def validate_customer_vendor(
         }
 
 
-    maintenance =
-        bool(
-            get_vendor_maintenance(
-                vendor_id
-            )
-        )
-
-
-    settings =
-        get_vendor_settings(
+    maintenance = (
+        get_vendor_maintenance(
             vendor_id
         )
+    )
 
 
-    accept_orders = True
+    if maintenance is None:
+        maintenance = False
 
 
-    if settings is not None:
+    settings = get_vendor_settings(
+        vendor_id
+    )
 
-        accept_orders =
-            bool(
-                settings.get(
-                    "accept_orders",
-                    True
-                )
+
+    if settings is None:
+
+        accept_orders = True
+
+    else:
+
+        accept_orders = bool(
+            settings.get(
+                "accept_orders",
+                True
             )
+        )
 
-
-    /*
-     * Do not expose:
-     * vendor_id
-     * owner details
-     * internal information
-     */
 
     return {
 
@@ -1576,9 +2754,10 @@ def validate_customer_vendor(
             True
     }
 
-# ==========================================
+
+# ============================================================
 # GLOBAL EXCEPTION HANDLER
-# ==========================================
+# ============================================================
 
 @app.exception_handler(
     Exception
@@ -1600,6 +2779,7 @@ async def global_exception_handler(
     return JSONResponse(
         status_code=500,
         content={
+
             "success":
                 False,
 
