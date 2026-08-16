@@ -167,14 +167,10 @@ LOG_FOLDER.mkdir(
 
 
 def cleanup_expired_uploads():
-
-    expired_files =
-        cleanup_expired_jobs()
+    expired_files = cleanup_expired_jobs()
 
     for filename in expired_files:
-
-        file_path =
-            UPLOAD_FOLDER / filename
+        file_path = UPLOAD_FOLDER / filename
 
         if file_path.exists():
             file_path.unlink()
